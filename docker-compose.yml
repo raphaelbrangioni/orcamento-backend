@@ -1,0 +1,56 @@
+services:
+  backend:
+    build:
+      context: ./orcamento-backend
+      dockerfile: Dockerfile
+    image: orcamento-app-backend
+    ports:
+      - "8045:8045"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/orcamento?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=orcamento_user
+      - SPRING_DATASOURCE_PASSWORD=orcamento_pass
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - orcamento-network
+
+  frontend:
+    build:
+      context: ./orcamento-frontend
+      dockerfile: Dockerfile
+    image: orcamento-app-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - orcamento-network
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=admin.2011
+      - MYSQL_DATABASE=orcamento
+      - MYSQL_USER=orcamento_user
+      - MYSQL_PASSWORD=orcamento_pass
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - orcamento-network
+
+volumes:
+  mysql-data:
+
+networks:
+  orcamento-network:
+    driver: bridge
