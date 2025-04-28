@@ -24,21 +24,20 @@ public class PdfService {
 
         // Carregar o documento PDF
         try (PDDocument document = PDDocument.load(pdfInputStream)) {
-
-            log.info("Documento PDF carregado : {} ",document.toString());
+            log.info("Documento PDF carregado : {} ", document.toString());
             PDFTextStripper stripper = new PDFTextStripper();
             String textoExtraido = stripper.getText(document);
-            log.info("textoExtraido: {} ",textoExtraido);
+            log.info("textoExtraido: {} ", textoExtraido);
 
             // Dividir o texto em linhas
             List<String> linhas = Arrays.asList(textoExtraido.split("\n"));
-            log.info("linhas: {} ",linhas);
+            log.info("linhas: {} ", linhas);
             boolean temString = false;
-            if( linhas.contains("00 01290 VK045 28/03/2025")){
+            if (linhas.contains("00 01290 VK045 28/03/2025")) {
                 temString = true;
-            };
-            log.info("temString: {} ",temString);
-            if(!temString) {
+            }
+            log.info("temString: {} ", temString);
+            if (!temString) {
                 transacoes = processarRegistros(linhas);
             }
         }
@@ -46,34 +45,14 @@ public class PdfService {
         return transacoes;
     }
 
-//    // Processar as linhas extraídas
-//    private static List<Transaction> processarRegistros(List<String> linhas) {
-//        List<Transaction> transacoes = new ArrayList<>();
-//        for (String linha : linhas) {
-//            // Limpar a linha: remover espaços extras e normalizar
-//            String linhaLimpa = linha.trim().replaceAll("\\s+", " ");
-//            System.out.println("Linha processada: [" + linhaLimpa + "]"); // Log para depuração
-//
-//            // Verificar se a linha começa com uma data (ex.: "4/10" ou "04/10")
-//            if (linhaLimpa.matches("^\\d{1,2}/\\d{1,2}.*")) {
-//                Transaction transacao = parseTransaction(linhaLimpa);
-//                if (transacao != null) {
-//                    transacoes.add(transacao);
-//                }
-//            }
-//        }
-//        return transacoes;
-//    }
-
     private static List<Transaction> processarRegistros(List<String> linhas) {
         List<Transaction> todasTransacoes = new ArrayList<>();
 
         for (String linha : linhas) {
-
-            log.info(linha);
+           // log.info(linha);
             // Limpar a linha: remover espaços extras e normalizar
             String linhaLimpa = linha.trim().replaceAll("\\s+", " ");
-            log.info("Linha processada: [" + linhaLimpa + "]"); // Log para depuração
+           // log.info("Linha processada: [" + linhaLimpa + "]"); // Log para depuração
 
             // Verificar se a linha começa com uma data (ex.: "4/10" ou "04/10")
             if (linhaLimpa.matches("^\\d{1,2}/\\d{1,2}.*")) {
@@ -82,10 +61,9 @@ public class PdfService {
                     todasTransacoes.add(transacao);
                 }
             }
-
         }
 
-        // Agrupar por dataCompra, estabelecimento e valor e manter a transação com a menor parcela
+        // Agrupar por dataCompra, estabelecimento e valor normalizado e manter a transação com a menor parcela
         return filtrarPorMenorParcela(todasTransacoes);
     }
 
@@ -136,7 +114,6 @@ public class PdfService {
 
         if (valor.isEmpty()) return null;
 
-
         log.info("Parsed: data=" + data + ", est=" + estabelecimento + ", parcela=" + parcela + ", valor=" + valor);
 
         return new Transaction(data, estabelecimento, parcela, valor);
@@ -152,99 +129,6 @@ public class PdfService {
         return null;
     }
 
-//    private static List<Transaction> filtrarPorMenorParcela(List<Transaction> transacoes) {
-//        return transacoes.stream()
-//                .collect(
-//
-//                        java.util.stream.Collectors.groupingBy(
-//
-//                                // Agrupando por dataCompra, estabelecimento e valor
-//                                t -> String.join("|", t.getDataCompra(), t.getEstabelecimento(), t.getValor()),
-//
-//                                // Coletando as transações em listas para cada grupo
-//                                java.util.stream.Collectors.toList()
-//                        )
-//                )
-//                .values().stream()
-//                .map(grupo -> {
-//                    // Filtrar a menor parcela em cada grupo
-//                    return grupo.stream().min((t1, t2) -> {
-//                        log.info("Comparando parcelas: {} e {}", t1.getParcela(), t2.getParcela());
-//                        // Comparar parcelas (antes do "/", ou "atual" da parcela)
-//                        int parcelaT1 = Integer.parseInt(t1.getParcela().split("/")[0]);
-//                        int parcelaT2 = Integer.parseInt(t2.getParcela().split("/")[0]);
-//                        return Integer.compare(parcelaT1, parcelaT2);
-//                    }).orElse(null); // Nunca será null, pois o grupo tem pelo menos 1 elemento
-//                })
-//                .filter(java.util.Objects::nonNull) // Remove valores nulos, se acaso existirem
-//                .toList(); // Converte para uma lista
-//    }
-
-//    private static List<Transaction> filtrarPorMenorParcela(List<Transaction> transacoes) {
-//        return transacoes.stream()
-//                .filter(t -> {
-//                    if (t.getParcela() == null) {
-//                        log.warn("Transação com parcela nula detectada: {}", t);
-//                        return false; // Exclui transações com parcela nula
-//                    }
-//                    return true;
-//                })
-//                .collect(
-//                        Collectors.groupingBy(
-//                                // Agrupando por dataCompra, estabelecimento e valor
-//                                t -> String.join("|", t.getDataCompra(), t.getEstabelecimento(), t.getValor()),
-//                                Collectors.toList()
-//                        )
-//                )
-//                .values().stream()
-//                .map(grupo -> {
-//                    // Filtrar a menor parcela em cada grupo
-//                    return grupo.stream().min((t1, t2) -> {
-//                        log.info("Comparando parcelas: {} e {}", t1.getParcela(), t2.getParcela());
-//                        // Comparar parcelas (antes do "/", ou "atual" da parcela)
-//                        int parcelaT1 = Integer.parseInt(t1.getParcela().split("/")[0]);
-//                        int parcelaT2 = Integer.parseInt(t2.getParcela().split("/")[0]);
-//                        return Integer.compare(parcelaT1, parcelaT2);
-//                    }).orElse(null); // Nunca será null, pois o grupo tem pelo menos 1 elemento
-//                })
-//                .filter(Objects::nonNull) // Remove valores nulos, se acaso existirem
-//                .toList(); // Converte para uma lista
-//    }
-
-//    private static List<Transaction> filtrarPorMenorParcela(List<Transaction> transacoes) {
-//      //  log.info("transacoes: {} ",transacoes);
-//        for (Transaction t : transacoes) {
-//            if (t.getParcela() !=null) {
-//                log.info("Parcela nula: {} ",t.toString());
-//            }
-//        }
-//
-//        return transacoes.stream()
-//                .collect(
-//                        Collectors.groupingBy(
-//                                // Agrupando por dataCompra, estabelecimento e valor
-//                                t -> String.join("|",
-//                                        t.getDataCompra() != null ? t.getDataCompra() : "",
-//                                        t.getEstabelecimento() != null ? t.getEstabelecimento() : "",
-//                                        t.getValor() != null ? t.getValor() : ""),
-//                                Collectors.toList()
-//                        )
-//                )
-//                .values().stream()
-//                .map(grupo -> {
-//                    // Filtrar a menor parcela em cada grupo
-//                    return grupo.stream().min((t1, t2) -> {
-//                        log.info("Comparando parcelas: {} e {}", t1.getParcela(), t2.getParcela());
-//                        // Comparar parcelas com valor padrão para null
-//                        int parcelaT1 = t1.getParcela() != null ? Integer.parseInt(t1.getParcela().split("/")[0]) : 0;
-//                        int parcelaT2 = t2.getParcela() != null ? Integer.parseInt(t2.getParcela().split("/")[0]) : 0;
-//                        return Integer.compare(parcelaT1, parcelaT2);
-//                    }).orElse(null); // Nunca será null, pois o grupo tem pelo menos 1 elemento
-//                })
-//                .filter(Objects::nonNull)
-//                .toList();
-//    }
-
     private static List<Transaction> filtrarPorMenorParcela(List<Transaction> transacoes) {
         // Separar transações com parcela nula e não nula
         List<Transaction> transacoesComParcelaNula = transacoes.stream()
@@ -255,22 +139,19 @@ public class PdfService {
 
         List<Transaction> transacoesComParcela = transacoes.stream()
                 .filter(t -> t.getParcela() != null)
-                .peek(t -> log.info("Transação com parcela válida: parcela={}, dataCompra={}, estabelecimento={}, valor={}",
+                .peek(t ->
+                        log.info("Transação com parcela válida: parcela={}, dataCompra={}, estabelecimento={}, valor={}",
                         t.getParcela(), t.getDataCompra(), t.getEstabelecimento(), t.getValor()))
-                .collect(
-                        Collectors.groupingBy(
-                                // Agrupando por dataCompra, estabelecimento e valor
-                                t -> String.join("|",
-                                        t.getDataCompra() != null ? t.getDataCompra() : "",
-                                        t.getEstabelecimento() != null ? t.getEstabelecimento() : "",
-                                        t.getValor() != null ? t.getValor() : ""),
-                                Collectors.toList()
-                        )
-                )
+                .collect(Collectors.groupingBy(
+                        t -> String.join("|",
+                                t.getDataCompra() != null ? t.getDataCompra() : "",
+                                t.getEstabelecimento() != null ? t.getEstabelecimento() : "",
+                                normalizarValor(t.getValor())),
+                        Collectors.toList()
+                ))
                 .values().stream()
                 .map(grupo -> grupo.stream().min((t1, t2) -> {
-                    log.info("Comparando parcelas: {} e {}", t1.getParcela(), t2.getParcela());
-                    // Como o filtro garante parcelas não nulas, podemos assumir formato dd/dd
+                    //log.info("Comparando parcelas: {} e {}", t1.getParcela(), t2.getParcela());
                     int parcelaT1 = Integer.parseInt(t1.getParcela().split("/")[0]);
                     int parcelaT2 = Integer.parseInt(t2.getParcela().split("/")[0]);
                     return Integer.compare(parcelaT1, parcelaT2);
@@ -283,9 +164,23 @@ public class PdfService {
         resultado.addAll(transacoesComParcelaNula);
         resultado.addAll(transacoesComParcela);
 
-        log.info("Total de transações retornadas: {} ({} com parcela nula, {} com parcela válida)",
-                resultado.size(), transacoesComParcelaNula.size(), transacoesComParcela.size());
+       // log.info("Total de transações retornadas: {} ({} com parcela nula, {} com parcela válida)",
+       //         resultado.size(), transacoesComParcelaNula.size(), transacoesComParcela.size());
 
         return resultado;
+    }
+
+    private static String normalizarValor(String valor) {
+        if (valor == null) return "";
+        try {
+            // Substitui vírgula por ponto para conversão
+            double valorDouble = Double.parseDouble(valor.replace(",", "."));
+            // Trunca para a parte inteira
+            long valorInteiro = (long) valorDouble;
+            return String.valueOf(valorInteiro);
+        } catch (NumberFormatException e) {
+            log.warn("Valor inválido para normalização: {}", valor);
+            return valor; // Retorna o valor original em caso de erro
+        }
     }
 }
