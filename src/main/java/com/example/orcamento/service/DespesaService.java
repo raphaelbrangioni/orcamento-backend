@@ -1,6 +1,7 @@
 // src/main/java/com/example/orcamento/service/DespesaService.java
 package com.example.orcamento.service;
 
+import com.example.orcamento.dto.ConfiguracaoDTO;
 import com.example.orcamento.dto.dashboard.DespesasMensaisDTO;
 import com.example.orcamento.model.*;
 import com.example.orcamento.repository.DespesaRepository;
@@ -31,6 +32,8 @@ public class DespesaService {
     private final MetaEconomiaService metaEconomiaService;
     @Autowired
     private LancamentoCartaoRepository lancamentoCartaoRepository;
+    @Autowired
+    private ConfiguracaoService configuracaoService;
 
     public List<Despesa> listarDespesas() {
         return despesaRepository.findAll();
@@ -49,10 +52,17 @@ public class DespesaService {
         Despesa despesaSalva = despesaRepository.save(despesa);
 
         // Integração com MetaEconomia
-        if ("Investimento".equalsIgnoreCase(despesaSalva.getTipo().getNome()) &&
+        ConfiguracaoDTO configuracao = configuracaoService.getConfiguracoes();
+        if (configuracao != null &&
+                configuracao.getTipoDespesaInvestimentoId() != null &&
+                despesaSalva.getTipo() != null &&
+                despesaSalva.getTipo().getId().equals(configuracao.getTipoDespesaInvestimentoId()) &&
                 despesaSalva.getMetaEconomia() != null &&
                 despesaSalva.getValorPago() != null &&
                 despesaSalva.getDataPagamento() != null) {
+
+            log.info("Integração com MetaEconomia............ Atualizando: {}", despesa.getMetaEconomia());
+
             MetaEconomia meta = metaEconomiaService.buscarPorId(despesaSalva.getMetaEconomia().getId())
                     .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada"));
             meta.setValorEconomizado(meta.getValorEconomizado() + despesaSalva.getValorPago().doubleValue());
@@ -139,12 +149,49 @@ public class DespesaService {
         }
 
         // Integração com MetaEconomia
-        if ("Investimento".equalsIgnoreCase(despesa.getTipo().getNome()) && metaEconomiaId != null) {
+        ConfiguracaoDTO configuracao = configuracaoService.getConfiguracoes();
+
+        log.info("Configuracoes: {}", configuracao);
+        log.info("TipoDespesaInvestimentoId: {}", configuracao.getTipoDespesaInvestimentoId());
+        log.info("Despesa tipo: {}", despesa.getTipo());
+        log.info("Despesa tipo id: {}", despesa.getTipo().getId());
+        log.info("MetaEconomiaId: {}", metaEconomiaId);
+
+        // Verificação detalhada com logs
+        boolean condicao1 = configuracao != null;
+        boolean condicao2 = configuracao.getTipoDespesaInvestimentoId() != null;
+        boolean condicao3 = despesa.getTipo() != null;
+        boolean condicao4 = false;
+        if (condicao1 && condicao2 && condicao3) {
+            condicao4 = despesa.getTipo().getId().equals(configuracao.getTipoDespesaInvestimentoId());
+        }
+        boolean condicao5 = metaEconomiaId != null;
+
+        log.info("Condição 1 (configuracao != null): {}", condicao1);
+        log.info("Condição 2 (tipoDespesaInvestimentoId != null): {}", condicao2);
+        log.info("Condição 3 (despesa.getTipo() != null): {}", condicao3);
+        log.info("Condição 4 (ids iguais): {}", condicao4);
+        log.info("Condição 5 (metaEconomiaId != null): {}", condicao5);
+
+        // Comparação direta dos IDs como Long
+        if (condicao3 && condicao2) {
+            log.info("Comparação direta: {} == {}: {}",
+                    despesa.getTipo().getId(),
+                    configuracao.getTipoDespesaInvestimentoId(),
+                    despesa.getTipo().getId() == configuracao.getTipoDespesaInvestimentoId());
+        }
+
+        if (condicao1 && condicao2 && condicao3 && condicao4 && condicao5) {
             MetaEconomia meta = metaEconomiaService.buscarPorId(metaEconomiaId)
                     .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada: " + metaEconomiaId));
             despesa.setMetaEconomia(meta);
             meta.setValorEconomizado(meta.getValorEconomizado() + valorPago.doubleValue());
             metaEconomiaService.salvarMeta(meta);
+
+            log.info("Meta de economia atualizada: {}, novo valor economizado: {}",
+                    meta.getNome(), meta.getValorEconomizado());
+        } else {
+            log.info("Não foi possível integrar com MetaEconomia - Condições não atendidas");
         }
 
         return despesaRepository.save(despesa);
@@ -157,66 +204,25 @@ public class DespesaService {
 
         log.info("Atualizando despesa: {} para {}", despesa, despesaAtualizada);
 
-        // Verifica se houve mudança no pagamento (valor, data ou conta)
-        boolean tinhaPagamento = despesa.getValorPago() != null && despesa.getDataPagamento() != null && despesa.getContaCorrente() != null;
-        boolean temPagamento = despesaAtualizada.getValorPago() != null && despesaAtualizada.getDataPagamento() != null && despesaAtualizada.getContaCorrente() != null;
+        // Preserva os dados de pagamento originais
+        BigDecimal valorPagoOriginal = despesa.getValorPago();
+        LocalDate dataPagamentoOriginal = despesa.getDataPagamento();
+        ContaCorrente contaCorrenteOriginal = despesa.getContaCorrente();
 
-        boolean mudouValor = tinhaPagamento && temPagamento && !despesa.getValorPago().equals(despesaAtualizada.getValorPago());
-        boolean mudouConta = tinhaPagamento && temPagamento && !despesa.getContaCorrente().getId().equals(despesaAtualizada.getContaCorrente().getId());
-
-        // Caso 1: Pagamento removido (estorno)
-        if (tinhaPagamento && !temPagamento) {
-            Movimentacao movimentacaoEntrada = Movimentacao.builder()
-                    .tipo(TipoMovimentacao.ENTRADA)
-                    .valor(despesa.getValorPago())
-                    .contaCorrente(despesa.getContaCorrente())
-                    .despesa(despesa)
-                    .descricao("Remoção de pagamento (estorno): " + despesa.getNome())
-                    .dataRecebimento(despesa.getDataPagamento())
-                    .dataCadastro(LocalDateTime.now())
-                    .build();
-            movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
-        }
-        // Caso 2: Pagamento adicionado ou alterado
-        else if (temPagamento) {
-            // Se já tinha pagamento e mudou valor ou conta, faz estorno do antigo
-            if (tinhaPagamento && (mudouValor || mudouConta)) {
-                Movimentacao movimentacaoEntrada = Movimentacao.builder()
-                        .tipo(TipoMovimentacao.ENTRADA)
-                        .valor(despesa.getValorPago())
-                        .contaCorrente(despesa.getContaCorrente())
-                        .despesa(despesa)
-                        .descricao("Correção de despesa (estorno): " + despesa.getNome())
-                        .dataRecebimento(despesa.getDataPagamento())
-                        .dataCadastro(LocalDateTime.now())
-                        .build();
-                movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
-            }
-            // Registra o novo pagamento (se novo ou alterado)
-            if (!tinhaPagamento || mudouValor || mudouConta) {
-                Movimentacao movimentacaoSaida = Movimentacao.builder()
-                        .tipo(TipoMovimentacao.SAIDA)
-                        .valor(despesaAtualizada.getValorPago())
-                        .contaCorrente(despesaAtualizada.getContaCorrente())
-                        .despesa(despesa)
-                        .descricao("Correção de despesa (pagamento): " + despesaAtualizada.getNome())
-                        .dataRecebimento(despesaAtualizada.getDataPagamento())
-                        .dataCadastro(LocalDateTime.now())
-                        .build();
-                movimentacaoService.registrarMovimentacao(movimentacaoSaida);
-            }
-        }
-
-        // Atualiza os campos da despesa
+        // Atualiza os campos da despesa (exceto pagamento)
         despesa.setNome(despesaAtualizada.getNome());
         despesa.setValorPrevisto(despesaAtualizada.getValorPrevisto());
-        despesa.setValorPago(despesaAtualizada.getValorPago());
         despesa.setDataVencimento(despesaAtualizada.getDataVencimento());
-        despesa.setDataPagamento(despesaAtualizada.getDataPagamento());
         despesa.setParcela(despesaAtualizada.getParcela());
         despesa.setDetalhes(despesaAtualizada.getDetalhes());
         despesa.setTipo(despesaAtualizada.getTipo());
-        despesa.setContaCorrente(despesaAtualizada.getContaCorrente());
+        despesa.setClassificacao(despesaAtualizada.getClassificacao());
+        despesa.setVariabilidade(despesaAtualizada.getVariabilidade());
+
+        // Restaura os dados de pagamento originais
+        despesa.setValorPago(valorPagoOriginal);
+        despesa.setDataPagamento(dataPagamentoOriginal);
+        despesa.setContaCorrente(contaCorrenteOriginal);
 
         return despesaRepository.save(despesa);
     }
@@ -319,5 +325,64 @@ public class DespesaService {
         }
 
         log.info("Excluídas {} parcelas associadas à despesa parcelada ID {}", parcelas.size(), despesaParceladaId);
+    }
+
+    @Transactional
+    public Despesa estornarPagamento(Long id) {
+        Despesa despesa = despesaRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada"));
+
+        // Verifica se existe pagamento
+        if (despesa.getValorPago() == null || despesa.getDataPagamento() == null || despesa.getContaCorrente() == null) {
+            throw new IllegalStateException("Despesa não possui pagamento para estornar");
+        }
+
+        // Cria movimentação de estorno
+        Movimentacao movimentacaoEntrada = Movimentacao.builder()
+                .tipo(TipoMovimentacao.ENTRADA)
+                .valor(despesa.getValorPago())
+                .contaCorrente(despesa.getContaCorrente())
+                .despesa(despesa)
+                .descricao("Estorno de pagamento: " + despesa.getNome())
+                .dataRecebimento(LocalDate.now())
+                .dataCadastro(LocalDateTime.now())
+                .build();
+
+        movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
+
+        // Se for despesa de investimento, estorna também na meta de economia
+        ConfiguracaoDTO configuracao = configuracaoService.getConfiguracoes();
+        if (configuracao != null &&
+                configuracao.getTipoDespesaInvestimentoId() != null &&
+                despesa.getTipo() != null &&
+                despesa.getTipo().getId().equals(configuracao.getTipoDespesaInvestimentoId()) &&
+                despesa.getMetaEconomia() != null) {
+
+            MetaEconomia meta = metaEconomiaService.buscarPorId(despesa.getMetaEconomia().getId())
+                    .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada"));
+            meta.setValorEconomizado(meta.getValorEconomizado() - despesa.getValorPago().doubleValue());
+            metaEconomiaService.salvarMeta(meta);
+
+            log.info("Estorno na meta de economia: {}, novo valor economizado: {}",
+                    meta.getNome(), meta.getValorEconomizado());
+        }
+
+        // Limpa os dados de pagamento
+        despesa.setValorPago(null);
+        despesa.setDataPagamento(null);
+        despesa.setContaCorrente(null);
+
+        return despesaRepository.save(despesa);
+    }
+
+
+    // No MetaEconomiaService.java
+    public List<Despesa> buscarDespesasRelacionadas(Long metaId) {
+        // Verificar se a meta existe
+        MetaEconomia meta = metaEconomiaService.buscarPorId(metaId)
+                .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada com ID: " + metaId));
+
+        // Buscar despesas relacionadas
+        return despesaRepository.findByMetaEconomiaId(metaId);
     }
 }

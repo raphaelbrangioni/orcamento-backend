@@ -52,4 +52,12 @@ public class Compra {
     @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL)
     @JsonIgnore // Ignora o campo parcelas na serialização
     private List<LancamentoCartao> parcelas;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "classificacao")
+    private TipoClassificacaoDespesa classificacao;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "variabilidade")
+    private TipoVariabilidadeDespesa variabilidade;
 }

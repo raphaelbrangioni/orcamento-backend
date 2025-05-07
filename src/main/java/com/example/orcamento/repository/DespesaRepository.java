@@ -62,4 +62,9 @@ public interface DespesaRepository extends JpaRepository<Despesa, Long> {
     List<Despesa> findDespesasByAno(@Param("ano") int ano);
 
     List<Despesa> findByDespesaParceladaId(Long despesaParceladaId);
+
+    // No DespesaRepository.java
+    List<Despesa> findByMetaEconomiaId(Long metaEconomiaId);
+
+
 }

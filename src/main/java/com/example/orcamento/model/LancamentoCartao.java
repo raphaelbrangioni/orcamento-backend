@@ -74,4 +74,14 @@ public class LancamentoCartao {
     }
 
 
+    // Em LancamentoCartao.java
+    @Enumerated(EnumType.STRING)
+    @Column(name = "classificacao")
+    private TipoClassificacaoDespesa classificacao;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "variabilidade")
+    private TipoVariabilidadeDespesa variabilidade;
+
+
 }

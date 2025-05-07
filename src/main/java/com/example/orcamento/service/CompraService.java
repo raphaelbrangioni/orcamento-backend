@@ -86,6 +86,8 @@ public class CompraService {
                     .detalhes(compra.getDetalhes())
                     .mesAnoFatura(mesAnoFatura)
                     .dataRegistro(LocalDateTime.now())
+                    .classificacao(compra.getClassificacao())
+                    .variabilidade(compra.getVariabilidade())
                     .build();
 
             parcelas.add(lancamento);

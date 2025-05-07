@@ -3,6 +3,7 @@ package com.example.orcamento.controller;
 import com.example.orcamento.dto.DespesaDTO;
 import com.example.orcamento.dto.dashboard.DespesasMensaisDTO;
 import com.example.orcamento.model.Despesa;
+import com.example.orcamento.model.MetaEconomia;
 import com.example.orcamento.service.DespesaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/despesas")
@@ -96,11 +98,28 @@ public class DespesaController {
         return ResponseEntity.ok(proximas);
     }
 
+//    static class PagamentoRequest {
+//        private BigDecimal valorPago;
+//        private LocalDate dataPagamento;
+//        private Long contaCorrenteId;
+//        private Long metaEconomiaId;
+//
+//        public BigDecimal getValorPago() { return valorPago; }
+//        public void setValorPago(BigDecimal valorPago) { this.valorPago = valorPago; }
+//        public LocalDate getDataPagamento() { return dataPagamento; }
+//        public void setDataPagamento(LocalDate dataPagamento) { this.dataPagamento = dataPagamento; }
+//        public Long getContaCorrenteId() { return contaCorrenteId; }
+//        public void setContaCorrenteId(Long contaCorrenteId) { this.contaCorrenteId = contaCorrenteId; }
+//        public Long getMetaEconomiaId() { return metaEconomiaId; }
+//        public void setMetaEconomiaId(Long metaEconomiaId) { this.metaEconomiaId = metaEconomiaId; }
+//    }
+
     static class PagamentoRequest {
         private BigDecimal valorPago;
         private LocalDate dataPagamento;
         private Long contaCorrenteId;
         private Long metaEconomiaId;
+        private Long metaId; // Novo campo para compatibilidade com o frontend
 
         public BigDecimal getValorPago() { return valorPago; }
         public void setValorPago(BigDecimal valorPago) { this.valorPago = valorPago; }
@@ -108,8 +127,15 @@ public class DespesaController {
         public void setDataPagamento(LocalDate dataPagamento) { this.dataPagamento = dataPagamento; }
         public Long getContaCorrenteId() { return contaCorrenteId; }
         public void setContaCorrenteId(Long contaCorrenteId) { this.contaCorrenteId = contaCorrenteId; }
-        public Long getMetaEconomiaId() { return metaEconomiaId; }
+
+        public Long getMetaEconomiaId() {
+            // Se metaEconomiaId for nulo, tenta usar metaId
+            return metaEconomiaId != null ? metaEconomiaId : metaId;
+        }
+
         public void setMetaEconomiaId(Long metaEconomiaId) { this.metaEconomiaId = metaEconomiaId; }
+        public Long getMetaId() { return metaId; }
+        public void setMetaId(Long metaId) { this.metaId = metaId; }
     }
 
     @GetMapping("/ano")
@@ -118,4 +144,27 @@ public class DespesaController {
         List<DespesasMensaisDTO> despesasAgrupadas = despesaService.buscarDespesasPorAno(ano);
         return ResponseEntity.ok(despesasAgrupadas);
     }
+
+
+    @PutMapping("/{id}/estornar-pagamento")
+    public ResponseEntity<DespesaDTO> estornarPagamento(@PathVariable Long id) {
+        log.info("Requisição PUT em /api/v1/despesas/{id}/estornar-pagamento");
+        log.info("ID informado para estorno: {}", id);
+        Despesa despesa = despesaService.estornarPagamento(id);
+        return ResponseEntity.ok(new DespesaDTO(despesa));
+    }
+
+
+
+    // No MetaEconomiaController.java
+    @GetMapping("/{id}/despesas-relacionadas")
+    public ResponseEntity<List<DespesaDTO>> listarDespesasRelacionadas(@PathVariable Long id) {
+        List<Despesa> despesas = despesaService.buscarDespesasRelacionadas(id);
+        List<DespesaDTO> despesasDTO = despesas.stream()
+                .map(DespesaDTO::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(despesasDTO);
+    }
+
+
 }

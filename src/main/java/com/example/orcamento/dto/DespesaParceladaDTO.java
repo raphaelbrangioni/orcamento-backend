@@ -1,6 +1,11 @@
 package com.example.orcamento.dto;
 
 import com.example.orcamento.model.DespesaParcelada;
+import com.example.orcamento.model.TipoClassificacaoDespesa;
+import com.example.orcamento.model.TipoVariabilidadeDespesa;
+import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,6 +28,8 @@ public class DespesaParceladaDTO {
     private String proprietario;
     private String detalhes;
     private LocalDate dataCadastro;
+    private TipoClassificacaoDespesa classificacao;
+    private TipoVariabilidadeDespesa variabilidade;
 
     public DespesaParceladaDTO(DespesaParcelada despesaParcelada) {
         this.id = despesaParcelada.getId();
@@ -36,5 +43,7 @@ public class DespesaParceladaDTO {
         this.proprietario = despesaParcelada.getProprietario();
         this.detalhes = despesaParcelada.getDetalhes();
         this.dataCadastro = despesaParcelada.getDataCadastro();
+        this.setClassificacao(despesaParcelada.getClassificacao());
+        this.setVariabilidade(despesaParcelada.getVariabilidade());
     }
 }

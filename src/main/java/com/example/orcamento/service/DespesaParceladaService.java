@@ -56,6 +56,8 @@ public class DespesaParceladaService {
         despesaParcelada.setTipoDespesa(tipoDespesa);
         despesaParcelada.setProprietario(dto.getProprietario());
         despesaParcelada.setDetalhes(dto.getDetalhes());
+        despesaParcelada.setClassificacao(dto.getClassificacao());
+        despesaParcelada.setVariabilidade(dto.getVariabilidade());
 
         DespesaParcelada despesaSalva = despesaParceladaRepository.save(despesaParcelada);
 
@@ -151,6 +153,8 @@ public class DespesaParceladaService {
             parcela.setDetalhes(despesaParcelada.getDetalhes());
             parcela.setDespesaParceladaId(despesaParcelada.getId());
             parcela.setNome(despesaParcelada.getDescricao() + " - Parcela " + (i + 1) + "/" + numeroParcelas);
+            parcela.setClassificacao(despesaParcelada.getClassificacao());
+            parcela.setVariabilidade(despesaParcelada.getVariabilidade());
 
 
             // Salvar a parcela

@@ -36,6 +36,14 @@ public class DespesaParcelada {
     private String detalhes;
     private LocalDate dataCadastro;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "classificacao")
+    private TipoClassificacaoDespesa classificacao;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "variabilidade")
+    private TipoVariabilidadeDespesa variabilidade;
+
     @PrePersist
     public void prePersist() {
         if (dataCadastro == null) {

@@ -1,13 +1,17 @@
 package com.example.orcamento.controller;
 
+import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.MetaEconomia;
+import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.service.MetaEconomiaService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -18,6 +22,9 @@ public class MetaEconomiaController {
 
     @Autowired
     private MetaEconomiaService service;
+
+    @Autowired
+    DespesaRepository despesaRepository;
 
     @GetMapping
     public List<MetaEconomia> listarMetas() {
@@ -76,4 +83,23 @@ public class MetaEconomiaController {
         MetaEconomia meta = service.atualizarFracaoBitcoin(id, fracaoBitcoin);
         return ResponseEntity.ok(meta);
     }
+
+    @PostMapping("/{id}/desassociar-despesas")
+    public ResponseEntity<Map<String, Object>> desassociarDespesas(@PathVariable Long id) {
+        int count = service.desassociarDespesas(id);
+        Map<String, Object> response = new HashMap<>();
+        response.put("count", count);
+        response.put("message", "Despesas desassociadas com sucesso");
+        return ResponseEntity.ok(response);
+    }
+
+    // No MetaEconomiaService.java
+// No MetaEconomiaController.java
+    @DeleteMapping("/{id}/com-despesas")
+    public ResponseEntity<Void> excluirMetaComDespesas(@PathVariable Long id) {
+        service.excluirMetaComDespesas(id);
+        return ResponseEntity.noContent().build();
+    }
+
+
 }

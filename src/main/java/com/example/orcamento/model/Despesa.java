@@ -2,6 +2,8 @@ package com.example.orcamento.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,8 +48,18 @@ public class Despesa {
 
     @ManyToOne
     @JoinColumn(name = "meta_economia_id")
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private MetaEconomia metaEconomia;
 
     // Adicione este campo ao seu modelo Despesa.java existente
     private Long despesaParceladaId;
+
+    // Em Despesa.java
+    @Enumerated(EnumType.STRING)
+    @Column(name = "classificacao")
+    private TipoClassificacaoDespesa classificacao;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "variabilidade")
+    private TipoVariabilidadeDespesa variabilidade;
 }

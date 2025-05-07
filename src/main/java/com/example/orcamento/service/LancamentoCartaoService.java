@@ -53,6 +53,9 @@ public class LancamentoCartaoService {
         lancamento.setMesAnoFatura(lancamentoAtualizado.getMesAnoFatura());
         lancamento.setTipoDespesa(lancamentoAtualizado.getTipoDespesa());
         lancamento.setPagoPorTerceiro(lancamentoAtualizado.getPagoPorTerceiro());
+        lancamento.setClassificacao(lancamentoAtualizado.getClassificacao());
+        lancamento.setVariabilidade(lancamentoAtualizado.getVariabilidade());
+        lancamento.setProprietario(lancamentoAtualizado.getProprietario());
         lancamento.setCartaoCredito(cartaoCreditoRepository.findById(lancamentoAtualizado.getCartaoCredito().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Cartão de crédito com ID " + lancamentoAtualizado.getCartaoCredito().getId() + " não encontrado.")));
         validarLancamento(lancamento);
