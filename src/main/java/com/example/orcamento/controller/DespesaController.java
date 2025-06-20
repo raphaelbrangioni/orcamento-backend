@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -164,6 +165,45 @@ public class DespesaController {
                 .map(DespesaDTO::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(despesasDTO);
+    }
+
+    // Novo endpoint para filtro dinâmico
+    @GetMapping("/filtrar-dinamico")
+    public ResponseEntity<List<Despesa>> listarDespesasPorFiltrosDinamicos(
+            @RequestParam(required = false) Long id,
+            @RequestParam(required = false) String nome,
+            @RequestParam(required = false) BigDecimal valorPrevisto,
+            @RequestParam(required = false) BigDecimal valorPago,
+            @RequestParam(required = false) String dataVencimento,
+            @RequestParam(required = false) String dataPagamento,
+            @RequestParam(required = false) Integer parcela,
+            @RequestParam(required = false) String detalhes,
+            @RequestParam(required = false) Long tipoDespesaId,
+            @RequestParam(required = false) Long contaCorrenteId,
+            @RequestParam(required = false) Long metaEconomiaId,
+            @RequestParam(required = false) Long despesaParceladaId,
+            @RequestParam(required = false) String classificacao,
+            @RequestParam(required = false) String variabilidade) {
+        log.info("Requisição GET em /api/v1/despesas/filtrar-dinamico com filtros");
+
+        Map<String, Object> filtros = new HashMap<>();
+        if (id != null) filtros.put("id", id);
+        if (nome != null) filtros.put("nome", nome);
+        if (valorPrevisto != null) filtros.put("valorPrevisto", valorPrevisto);
+        if (valorPago != null) filtros.put("valorPago", valorPago);
+        if (dataVencimento != null) filtros.put("dataVencimento", dataVencimento);
+        if (dataPagamento != null) filtros.put("dataPagamento", dataPagamento);
+        if (parcela != null) filtros.put("parcela", parcela);
+        if (detalhes != null) filtros.put("detalhes", detalhes);
+        if (tipoDespesaId != null) filtros.put("tipoDespesaId", tipoDespesaId);
+        if (contaCorrenteId != null) filtros.put("contaCorrenteId", contaCorrenteId);
+        if (metaEconomiaId != null) filtros.put("metaEconomiaId", metaEconomiaId);
+        if (despesaParceladaId != null) filtros.put("despesaParceladaId", despesaParceladaId);
+        if (classificacao != null) filtros.put("classificacao", classificacao);
+        if (variabilidade != null) filtros.put("variabilidade", variabilidade);
+
+        List<Despesa> despesas = despesaService.listarDespesasPorFiltrosDinamicos(filtros);
+        return ResponseEntity.ok(despesas);
     }
 
 

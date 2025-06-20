@@ -1,8 +1,6 @@
 package com.example.orcamento.service;
 
-
 import com.example.orcamento.model.CartaoCredito;
-import com.example.orcamento.model.ContaCorrente;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +36,25 @@ public class CartaoCreditoService {
         cartaoCredito.setNome(cataoAtualizado.getNome());
         cartaoCredito.setLimite(cataoAtualizado.getLimite());
         cartaoCredito.setDiaVencimento(cataoAtualizado.getDiaVencimento());
+        cartaoCredito.setStatus(cataoAtualizado.getStatus());
 
 
         return cartaoCreditoRepository.save(cartaoCredito);
     }
 
+    /**
+     * Retorna um cartão pelo ID. Lança EntityNotFoundException se não existir.
+     */
+    public CartaoCredito buscarPorId(Long id) {
+        return cartaoCreditoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrado: " + id));
+    }
+
+    /**
+     * Retorna um mapa de IDs para nomes dos cartões cadastrados.
+     */
+    public Map<Long, String> mapearIdParaNome() {
+        return cartaoCreditoRepository.findAll().stream()
+                .collect(Collectors.toMap(CartaoCredito::getId, CartaoCredito::getNome));
+    }
 }

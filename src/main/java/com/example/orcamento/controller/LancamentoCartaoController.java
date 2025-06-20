@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -100,5 +101,56 @@ public class LancamentoCartaoController {
         }
 
         return ResponseEntity.ok(lancamentoCartaoService.atualizarStatusPagamento(id, pagoPorTerceiro));
+    }
+
+    // Endpoint atualizado com filtro opcional mesAnoFatura
+    @GetMapping("/terceiros")
+    public ResponseEntity<List<LancamentoCartao>> listarLancamentosTerceiros(
+            @RequestParam(required = false) String mesAnoFatura) {
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/terceiros, mesAnoFatura: {}", mesAnoFatura);
+        List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosTerceiros(mesAnoFatura);
+        return ResponseEntity.ok(lancamentos);
+    }
+
+
+    // Novo endpoint para filtro dinâmico
+    @GetMapping("/filtrar-dinamico")
+    public ResponseEntity<List<LancamentoCartao>> listarLancamentosPorFiltrosDinamicos(
+            @RequestParam(required = false) Long id,
+            @RequestParam(required = false) String descricao,
+            @RequestParam(required = false) Integer parcelaAtual,
+            @RequestParam(required = false) Integer totalParcelas,
+            @RequestParam(required = false) String dataCompra,
+            @RequestParam(required = false) String detalhes,
+            @RequestParam(required = false) String mesAnoFatura,
+            @RequestParam(required = false) Long cartaoCreditoId,
+            @RequestParam(required = false) Long tipoDespesaId,
+            @RequestParam(required = false) String proprietario,
+            @RequestParam(required = false) String dataRegistro,
+            @RequestParam(required = false) Long compraId,
+            @RequestParam(required = false) Boolean pagoPorTerceiro,
+            @RequestParam(required = false) String classificacao,
+            @RequestParam(required = false) String variabilidade) {
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/filtrar-dinamico com filtros");
+
+        Map<String, Object> filtros = new HashMap<>();
+        if (id != null) filtros.put("id", id);
+        if (descricao != null) filtros.put("descricao", descricao);
+        if (parcelaAtual != null) filtros.put("parcelaAtual", parcelaAtual);
+        if (totalParcelas != null) filtros.put("totalParcelas", totalParcelas);
+        if (dataCompra != null) filtros.put("dataCompra", dataCompra);
+        if (detalhes != null) filtros.put("detalhes", detalhes);
+        if (mesAnoFatura != null) filtros.put("mesAnoFatura", mesAnoFatura);
+        if (cartaoCreditoId != null) filtros.put("cartaoCreditoId", cartaoCreditoId);
+        if (tipoDespesaId != null) filtros.put("tipoDespesaId", tipoDespesaId);
+        if (proprietario != null) filtros.put("proprietario", proprietario);
+        if (dataRegistro != null) filtros.put("dataRegistro", dataRegistro);
+        if (compraId != null) filtros.put("compraId", compraId);
+        if (pagoPorTerceiro != null) filtros.put("pagoPorTerceiro", pagoPorTerceiro);
+        if (classificacao != null) filtros.put("classificacao", classificacao);
+        if (variabilidade != null) filtros.put("variabilidade", variabilidade);
+
+        List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosPorFiltrosDinamicos(filtros);
+        return ResponseEntity.ok(lancamentos);
     }
 }

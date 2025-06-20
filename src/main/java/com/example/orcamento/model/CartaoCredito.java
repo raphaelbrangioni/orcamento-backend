@@ -22,4 +22,11 @@ public class CartaoCredito {
 
     @Column(nullable = false)
     private Integer diaVencimento; // Dia do mês em que a fatura vence
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusCartao status;
+
+    @Column(nullable = false)
+    private String modeloImportacao = "generico";
 }

@@ -2,7 +2,9 @@ package com.example.orcamento.controller;
 
 import com.example.orcamento.model.Transaction;
 import com.example.orcamento.service.PdfService;
+import com.example.orcamento.service.extractor.PdfCartaoExtractorService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,20 +25,39 @@ import java.util.Map;
 @Slf4j
 public class PdfController {
 
+    @Autowired
+    private PdfCartaoExtractorService pdfCartaoExtractorService;
+
     @PostMapping("/analisar")
-    public ResponseEntity<?> analisarPdf(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> analisarPdf(@RequestParam("file") MultipartFile file, @RequestParam("cartaoId") Long cartaoId) {
+
+        if(cartaoId == 7) {
+            cartaoId = 5L;
+        }
+
+//        1	Mastercard Person Multiplo Black Pontos
+//        2	Latam Pass Itaú Black
+//        3	Visa Personalité Infinite
+//        4	ZAFFARI CARD
+//        5	Cartão Inter
+//        6	Cartão C&A Pay
+//        7	Cartão Inter - Amor
+//        8	SANTANDER-ELITE CASHBACK SIGNATURE
+//        9	Amazon Prime Mastercard
+
         try {
             // Converte o arquivo MultipartFile em InputStream
             InputStream pdfInputStream = file.getInputStream();
 
-            // Extrai registros do PDF como List<Transaction>
-            List<Transaction> transacoes = PdfService.extrairInformacoesDoPdf(pdfInputStream);
+            List<Transaction> transacoes;
+            // Nova abordagem: delega para o service especializado
+            transacoes = (List<Transaction>) pdfCartaoExtractorService.extrair(cartaoId, pdfInputStream);
 
             // Calcular o total das transações
             double total = transacoes.stream()
                     .mapToDouble(t -> {
                         try {
-                            String valorFormatado = t.getValor().replace(",", ".");
+                            String valorFormatado = t.getValor().replace(".", "").replace(",", ".");
                             return Double.parseDouble(valorFormatado);
                         } catch (NumberFormatException e) {
                             log.error("Erro ao converter valor: {}", t.getValor(), e);

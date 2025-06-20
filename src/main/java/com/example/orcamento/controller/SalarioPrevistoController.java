@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.Parameter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/salarios-previstos")
+@Slf4j
 public class SalarioPrevistoController {
 
     @Autowired
@@ -53,7 +55,9 @@ public class SalarioPrevistoController {
     })
     @GetMapping
     public ResponseEntity<List<SalarioPrevisto>> listarSalarioPrevisto() {
+        log.info("/api/v1/salarios-previstos, listarSalarioPrevisto");
         List<SalarioPrevisto> salarios = service.listarSalariosPrevistos();
+        log.info("Salários previstos retornados: {}", salarios);
         return ResponseEntity.ok(salarios);
     }
 

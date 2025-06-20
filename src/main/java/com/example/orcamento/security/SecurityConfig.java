@@ -61,6 +61,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/compras/**").authenticated()
                         .requestMatchers("api/v1/despesas/ano/**").authenticated()
                         .requestMatchers("/api/v1/despesas-parceladas/**").authenticated()
+                        .requestMatchers("/api/v1/transacoes/**").authenticated()
+                        .requestMatchers("/api/v1/transacoes/filtrar-dinamico").authenticated()
                         .requestMatchers("/api/v1/pdf/**").authenticated()
                         .requestMatchers("/api/v1/configuracoes/**").authenticated()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/webjars/**", "/favicon.ico").permitAll()

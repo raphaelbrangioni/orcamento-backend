@@ -5,12 +5,15 @@ import com.example.orcamento.dto.dashboard.FaturaCartaoAnualDTO;
 import com.example.orcamento.model.LancamentoCartao;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
 import com.example.orcamento.repository.CartaoCreditoRepository;
+import com.example.orcamento.specification.LancamentoCartaoSpecification;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -152,4 +155,112 @@ public class LancamentoCartaoService {
             throw new IllegalArgumentException("Apenas lançamentos de terceiros podem ter o status de pagamento alterado.");
         }
     }
+
+//    // Novo método para listar lançamentos com proprietario = "Terceiros"
+//    public List<LancamentoCartao> listarLancamentosTerceiros() {
+//        log.info("Buscando lançamentos com proprietario = Terceiros");
+//        return lancamentoCartaoRepository.findByProprietario("Terceiros");
+//    }
+
+    // Método atualizado para incluir filtro opcional mesAnoFatura
+    public List<LancamentoCartao> listarLancamentosTerceiros(String mesAnoFatura) {
+        log.info("Buscando lançamentos com proprietario = Terceiros e mesAnoFatura = {}", mesAnoFatura);
+        return lancamentoCartaoRepository.findByProprietarioAndMesAnoFatura("Terceiros", mesAnoFatura);
+    }
+
+//    // Novo método para filtro dinâmico
+//    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
+//        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
+//        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtros));
+//    }
+
+//    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
+//        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
+//        // Mapeia nomes de campos do DTO para os da entidade
+//        Map<String, Object> filtrosMapeados = new HashMap<>();
+//        filtros.forEach((key, value) -> {
+//            switch (key) {
+//                case "descricao" -> filtrosMapeados.put("descricao", value);
+//                case "valor" -> filtrosMapeados.put("valorTotal", value);
+//                case "dataReferencia" -> filtrosMapeados.put("dataCompra", value);
+//                case "parcela" -> filtrosMapeados.put("parcelaAtual", value);
+//                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
+//                default -> filtrosMapeados.put(key, value); // Campos como id, detalhes, classificacao, variabilidade, totalParcelas são iguais
+//            }
+//        });
+//        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtrosMapeados));
+//    }
+
+//    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
+//        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
+//        // Mapeia nomes de campos do DTO para os da entidade
+//        Map<String, Object> filtrosMapeados = new HashMap<>();
+//        filtros.forEach((key, value) -> {
+//            switch (key) {
+//                case "descricao" -> filtrosMapeados.put("descricao", value);
+//                case "valor" -> filtrosMapeados.put("valorTotal", value);
+//                case "dataReferencia" -> filtrosMapeados.put("mesAnoFatura", value); // Mapeia para mesAnoFatura
+//                case "parcela" -> filtrosMapeados.put("parcelaAtual", value);
+//                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
+//                default -> filtrosMapeados.put(key, value); // Campos como id, detalhes, classificacao, variabilidade, totalParcelas
+//            }
+//        });
+//        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtrosMapeados));
+//    }
+
+    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
+        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
+        Map<String, Object> filtrosMapeados = new HashMap<>();
+        filtros.forEach((key, value) -> {
+            switch (key) {
+                case "descricao" -> filtrosMapeados.put("descricao", value);
+                case "valor" -> filtrosMapeados.put("valorTotal", value);
+                case "parcela" -> filtrosMapeados.put("parcelaAtual", value);
+                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
+                case "dataInicio" -> {
+                    if (value != null && filtros.containsKey("dataFim")) {
+                        List<String> mesesAnos = generateMesAnoList(
+                                value.toString(),
+                                filtros.get("dataFim").toString()
+                        );
+                        filtrosMapeados.put("mesAnoFaturaList", mesesAnos);
+                    }
+                }
+                case "dataFim" -> {} // Ignorado, tratado junto com dataInicio
+                default -> filtrosMapeados.put(key, value); // id, detalhes, classificacao, variabilidade, totalParcelas
+            }
+        });
+
+        // Garante que mesAnoFatura simples também vira lista para o filtro funcionar
+        if (filtros.containsKey("mesAnoFatura") && filtros.get("mesAnoFatura") != null && !filtrosMapeados.containsKey("mesAnoFaturaList")) {
+            List<String> lista = new ArrayList<>();
+            lista.add(filtros.get("mesAnoFatura").toString());
+            filtrosMapeados.put("mesAnoFaturaList", lista);
+        }
+        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtrosMapeados));
+    }
+
+    // Método auxiliar para gerar lista de MES/ANO no intervalo
+    private List<String> generateMesAnoList(String dataInicio, String dataFim) {
+        try {
+            LocalDate inicio = LocalDate.parse(dataInicio, DateTimeFormatter.ISO_LOCAL_DATE);
+            LocalDate fim = LocalDate.parse(dataFim, DateTimeFormatter.ISO_LOCAL_DATE);
+            List<String> mesesAnos = new ArrayList<>();
+            String[] meses = {
+                    "JANEIRO", "FEVEREIRO", "MARCO", "ABRIL", "MAIO", "JUNHO",
+                    "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+            };
+
+            while (!inicio.isAfter(fim)) {
+                String mesAno = meses[inicio.getMonthValue() - 1] + "/" + inicio.getYear();
+                mesesAnos.add(mesAno);
+                inicio = inicio.plusMonths(1);
+            }
+            return mesesAnos;
+        } catch (Exception e) {
+            log.warn("Formato inválido para dataInicio: {} ou dataFim: {}. Retornando lista vazia.", dataInicio, dataFim);
+            return List.of();
+        }
+    }
+
 }

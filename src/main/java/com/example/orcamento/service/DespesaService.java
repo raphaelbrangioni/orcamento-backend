@@ -7,6 +7,7 @@ import com.example.orcamento.model.*;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
 import com.example.orcamento.repository.MovimentacaoRepository;
+import com.example.orcamento.specification.DespesaSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -385,4 +386,29 @@ public class DespesaService {
         // Buscar despesas relacionadas
         return despesaRepository.findByMetaEconomiaId(metaId);
     }
+
+
+//    // Novo método para filtro dinâmico
+//    public List<Despesa> listarDespesasPorFiltrosDinamicos(Map<String, Object> filtros) {
+//        log.info("Buscando despesas com filtros dinâmicos: {}", filtros);
+//        return despesaRepository.findAll(DespesaSpecification.comFiltros(filtros));
+//    }
+
+    public List<Despesa> listarDespesasPorFiltrosDinamicos(Map<String, Object> filtros) {
+        log.info("Buscando despesas com filtros dinâmicos: {}", filtros);
+        Map<String, Object> filtrosMapeados = new HashMap<>();
+        filtros.forEach((key, value) -> {
+            switch (key) {
+                case "descricao" -> filtrosMapeados.put("nome", value);
+                case "valor" -> filtrosMapeados.put("valorPrevisto", value);
+                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
+                case "dataInicio" -> filtrosMapeados.put("dataVencimentoInicio", value);
+                case "dataFim" -> filtrosMapeados.put("dataVencimentoFim", value);
+                default -> filtrosMapeados.put(key, value); // id, detalhes, classificacao, variabilidade, parcela
+            }
+        });
+        return despesaRepository.findAll(DespesaSpecification.comFiltros(filtrosMapeados));
+    }
+
+
 }

@@ -3,6 +3,7 @@ package com.example.orcamento.repository;
 
 import com.example.orcamento.model.LancamentoCartao;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCartao, Long> {
+public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCartao, Long> , JpaSpecificationExecutor<LancamentoCartao> {
 
     List<LancamentoCartao> findByMesAnoFatura(String mesAnoFatura);
 
@@ -102,4 +103,15 @@ public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCart
 
     @Query("SELECT lc FROM LancamentoCartao lc WHERE (:cartaoId IS NULL OR lc.cartaoCredito.id = :cartaoId) AND (:mesAnoFatura IS NULL OR lc.mesAnoFatura = :mesAnoFatura)")
     List<LancamentoCartao> findByCartaoAndMesAno(@Param("cartaoId") Long cartaoId, @Param("mesAnoFatura") String mesAnoFatura);
+
+
+    // Novo método para buscar lançamentos com proprietario = "Terceiros"
+    List<LancamentoCartao> findByProprietario(String proprietario);
+
+    // Novo método para buscar por proprietario e mesAnoFatura (opcional)
+    @Query("SELECT l FROM LancamentoCartao l WHERE l.proprietario = :proprietario " +
+            "AND (:mesAnoFatura IS NULL OR l.mesAnoFatura = :mesAnoFatura)")
+    List<LancamentoCartao> findByProprietarioAndMesAnoFatura(
+            @Param("proprietario") String proprietario,
+            @Param("mesAnoFatura") String mesAnoFatura);
 }
