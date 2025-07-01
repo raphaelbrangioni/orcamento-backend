@@ -1,8 +1,9 @@
 package com.example.orcamento.controller;
 
 import com.example.orcamento.model.Transaction;
-import com.example.orcamento.service.PdfService;
-import com.example.orcamento.service.extractor.PdfCartaoExtractorService;
+import com.example.orcamento.service.CartaoCreditoService;
+import com.example.orcamento.service.extractor.PdfCartaoExtractor;
+import com.example.orcamento.service.extractor.PdfCartaoExtractorFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -25,58 +27,41 @@ import java.util.Map;
 @Slf4j
 public class PdfController {
 
+    private CartaoCreditoService cartaoCreditoService;
+
     @Autowired
-    private PdfCartaoExtractorService pdfCartaoExtractorService;
+    public void setCartaoCreditoService(CartaoCreditoService cartaoCreditoService) {
+        this.cartaoCreditoService = cartaoCreditoService;
+    }
 
     @PostMapping("/analisar")
-    public ResponseEntity<?> analisarPdf(@RequestParam("file") MultipartFile file, @RequestParam("cartaoId") Long cartaoId) {
-
-        if(cartaoId == 7) {
-            cartaoId = 5L;
-        }
-
-//        1	Mastercard Person Multiplo Black Pontos
-//        2	Latam Pass Itaú Black
-//        3	Visa Personalité Infinite
-//        4	ZAFFARI CARD
-//        5	Cartão Inter
-//        6	Cartão C&A Pay
-//        7	Cartão Inter - Amor
-//        8	SANTANDER-ELITE CASHBACK SIGNATURE
-//        9	Amazon Prime Mastercard
-
+    public ResponseEntity<?> analisarPdf(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("cartaoId") Long cartaoId,
+            @RequestParam(value = "modeloImportacao", required = false) String modeloImportacao
+    )
+    {
+        log.info("Analisando pdf");
+        log.info("modeloImportacao enviado: {}", modeloImportacao);
         try {
-            // Converte o arquivo MultipartFile em InputStream
+            // Se modeloImportacao não vier no request, busca do cartão
+            if (modeloImportacao == null || modeloImportacao.isBlank()) {
+                modeloImportacao = cartaoCreditoService.buscarPorId(cartaoId).getModeloImportacao();
+            }
             InputStream pdfInputStream = file.getInputStream();
-
-            List<Transaction> transacoes;
-            // Nova abordagem: delega para o service especializado
-            transacoes = (List<Transaction>) pdfCartaoExtractorService.extrair(cartaoId, pdfInputStream);
-
-            // Calcular o total das transações
-            double total = transacoes.stream()
-                    .mapToDouble(t -> {
-                        try {
-                            String valorFormatado = t.getValor().replace(".", "").replace(",", ".");
-                            return Double.parseDouble(valorFormatado);
-                        } catch (NumberFormatException e) {
-                            log.error("Erro ao converter valor: {}", t.getValor(), e);
-                            return 0.0;
-                        }
-                    })
-                    .sum();
-
-            // Criar resposta com transações e total
+            PdfCartaoExtractor extractor = PdfCartaoExtractorFactory.getExtractor(modeloImportacao);
+            List<Transaction> transacoes = extractor.extrair(pdfInputStream);
+            BigDecimal total = transacoes.stream()
+                    .map(t -> new BigDecimal(t.getValor()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            total = total.setScale(2, BigDecimal.ROUND_HALF_UP);
             Map<String, Object> resposta = new HashMap<>();
             resposta.put("transacoes", transacoes);
-            resposta.put("total", String.format("%.2f", total));
+            resposta.put("total", total.toString());
             resposta.put("quantidade", transacoes.size());
-
             log.info("Transações encontradas: {}", transacoes.size());
-            log.info("Total calculado: R$ {}", String.format("%.2f", total));
-
+            log.info("Total calculado: R$ {}", total);
             return ResponseEntity.ok(resposta);
-
         } catch (IOException e) {
             log.error("Erro ao processar arquivo PDF", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -65,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/transacoes/filtrar-dinamico").authenticated()
                         .requestMatchers("/api/v1/pdf/**").authenticated()
                         .requestMatchers("/api/v1/configuracoes/**").authenticated()
+                        .requestMatchers("/api/v1/api/v1/auth/trocar-senha").authenticated()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/webjars/**", "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
                         .anyRequest().denyAll()
@@ -90,16 +91,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://192.168.0.40:8080",  // Frontend acessado da máquina do servidor
-                "http://192.168.0.107:8080", // Frontend rodando na outra máquina
-                "http://localhost:8080",     // Para testes locais
-                "http://192.168.0.40:8045",  // Backend acessado diretamente
-                "http://localhost:8045"      // Backend local
-        ));
+        configuration.addAllowedOrigin("*"); // Permite qualquer origem
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false); // Importante: false se usar allowedOrigin "*"
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

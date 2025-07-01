@@ -131,7 +131,7 @@ public class PdfCartaoExtractorCartao1 implements PdfCartaoExtractor {
         }
         if (valor.isEmpty()) return null;
         log.info("PARSE DEBUG | linha: '{}' | data: '{}' | est: '{}' | parcela: '{}' | valor: '{}'", linha, data, estabelecimento, parcela, valor);
-        return new Transaction(data, estabelecimento, parcela, valor);
+        return new Transaction(data, estabelecimento, parcela, normalizarValor(valor));
     }
 
     private static String extrairParcelaDeTexto(String texto) {

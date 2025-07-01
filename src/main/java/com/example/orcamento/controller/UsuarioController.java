@@ -2,12 +2,15 @@ package com.example.orcamento.controller;
 
 import com.example.orcamento.dto.LoginRequest;
 import com.example.orcamento.dto.LoginResponse;
+import com.example.orcamento.dto.TrocaSenhaRequest;
 import com.example.orcamento.dto.UsuarioDTO;
 import com.example.orcamento.model.Usuario;
 import com.example.orcamento.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -102,5 +105,26 @@ public class UsuarioController {
     public ResponseEntity<String> atualizarSenha(@PathVariable String username, @RequestBody String novaSenha) {
         usuarioService.atualizarSenha(username, novaSenha);
         return ResponseEntity.ok("Senha atualizada com sucesso!");
+    }
+
+    // Endpoint seguro para troca de senha
+    @PostMapping("/trocar-senha")
+    public ResponseEntity<?> trocarSenha(@RequestBody TrocaSenhaRequest request) {
+        try {
+            // Obtém o usuário autenticado do contexto de segurança
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+            log.info("Solicitação de troca de senha para usuário: {}", username);
+            // Autentica a senha atual
+            usuarioService.authenticate(username, request.getSenhaAtual());
+            log.info("Senha atual confirmada para usuário: {}", username);
+            // Atualiza para a nova senha
+            usuarioService.atualizarSenha(username, request.getNovaSenha());
+            log.info("Senha alterada com sucesso para usuário: {}", username);
+            return ResponseEntity.ok("Senha alterada com sucesso!");
+        } catch (Exception e) {
+            log.error("Erro ao trocar senha para usuário autenticado: ", e);
+            return ResponseEntity.status(500).body("Erro ao trocar senha: " + e.getMessage());
+        }
     }
 }

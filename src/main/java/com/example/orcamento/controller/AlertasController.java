@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.example.orcamento.service.AlertaService;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/alertas")
@@ -16,8 +17,8 @@ public class AlertasController {
     private AlertaService alertaService;
 
     @GetMapping("/limites")
-    public ResponseEntity<List<String>> verificarLimites() {
-        List<String> alertas = alertaService.verificarLimites();
+    public ResponseEntity<List<Map<String, Object>>> verificarLimites() {
+        List<Map<String, Object>> alertas = alertaService.verificarLimites();
         return ResponseEntity.ok(alertas);
     }
 }

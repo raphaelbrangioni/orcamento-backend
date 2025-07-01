@@ -6,6 +6,7 @@ import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.LancamentoCartao;
 import com.example.orcamento.service.DespesaService;
 import com.example.orcamento.service.LancamentoCartaoService;
+import com.example.orcamento.service.TransacaoFinanceiraService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,7 @@ public class TransacaoFinanceiraController {
 
     private final DespesaService despesaService;
     private final LancamentoCartaoService lancamentoCartaoService;
+    private final TransacaoFinanceiraService transacaoFinanceiraService;
 
     @GetMapping
     public ResponseEntity<List<TransacaoFinanceiraDTO>> listarTransacoes() {
@@ -74,21 +76,9 @@ public class TransacaoFinanceiraController {
         if (totalParcelas != null) filtros.put("totalParcelas", totalParcelas);
         if (dataInicio != null) filtros.put("dataInicio", dataInicio);
         if (dataFim != null) filtros.put("dataFim", dataFim);
+        if (origem != null) filtros.put("origem", origem);
 
-        List<TransacaoFinanceiraDTO> transacoes = new ArrayList<>();
-        if (origem == null || origem.equalsIgnoreCase("DESPESA")) {
-            List<Despesa> despesas = despesaService.listarDespesasPorFiltrosDinamicos(filtros);
-            transacoes.addAll(despesas.stream()
-                    .map(TransacaoFinanceiraDTO::new)
-                    .collect(Collectors.toList()));
-        }
-        if (origem == null || origem.equalsIgnoreCase("CARTAO_CREDITO")) {
-            List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosPorFiltrosDinamicos(filtros);
-            transacoes.addAll(lancamentos.stream()
-                    .map(TransacaoFinanceiraDTO::new)
-                    .collect(Collectors.toList()));
-        }
-
+        List<TransacaoFinanceiraDTO> transacoes = transacaoFinanceiraService.filtrarTransacoesDinamico(filtros);
         return ResponseEntity.ok(transacoes);
     }
 }

@@ -44,6 +44,7 @@ public class PdfCartaoExtractorCartao5 implements PdfCartaoExtractor {
                     String estabelecimento = matcherComValor.group(2).trim();
                     String parcela = matcherComValor.group(3) != null ? matcherComValor.group(3).replace("(Parcela ", "").replace(")", "").trim() : null;
                     String valor = matcherComValor.group(4).replace("-", "").trim();
+                    valor = valor.replace(".", "").replace(",", ".");
                     Transaction t = new Transaction(data, estabelecimento, parcela, valor);
                     transacoes.add(t);
                     continue;
@@ -60,6 +61,7 @@ public class PdfCartaoExtractorCartao5 implements PdfCartaoExtractor {
                         String prox = linhas.get(i + j).trim();
                         if ((prox.startsWith("- R$") || prox.startsWith("-R$")) && !valorUsado[i + j]) {
                             valor = prox.replace("- R$", "").replace("-R$", "").replace("-", "").trim();
+                            valor = valor.replace(".", "").replace(",", ".");
                             valorIdx = i + j;
                             break;
                         }

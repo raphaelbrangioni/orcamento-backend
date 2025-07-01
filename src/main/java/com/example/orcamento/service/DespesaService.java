@@ -258,26 +258,30 @@ public class DespesaService {
     }
 
 
-    public Map<String, Double> calcularGastosPorCategoria(Integer ano, Integer mes) {
+    public Map<Long, Double> calcularGastosPorCategoria(Integer ano, Integer mes) {
+        log.info("Calculando gastos por categoria para ano={}, mes={}", ano, mes);
         // 1. Gastos das despesas comuns
         List<Despesa> despesas = despesaRepository.findByAnoAndMes(ano, mes);
-        Map<String, Double> gastosPorCategoria = new HashMap<>();
+        log.info("Despesas encontradas: {}", despesas.size());
+        Map<Long, Double> gastosPorCategoria = new HashMap<>();
 
         for (Despesa despesa : despesas) {
-            String categoria = despesa.getTipo().getNome();
+            Long categoriaId = despesa.getTipo().getId();
             BigDecimal valor = despesa.getValorPago() != null ? despesa.getValorPago() : despesa.getValorPrevisto();
             double valorDouble = valor.doubleValue();
-            gastosPorCategoria.put(categoria, gastosPorCategoria.getOrDefault(categoria, 0.0) + valorDouble);
+            gastosPorCategoria.put(categoriaId, gastosPorCategoria.getOrDefault(categoriaId, 0.0) + valorDouble);
         }
 
         // 2. Gastos das faturas de cartão (não lançadas como despesa)
         List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByAnoAndMes(ano, mes);
+        log.info("Lançamentos de cartão encontrados: {}", lancamentos.size());
         for (LancamentoCartao lancamento : lancamentos) {
-            String categoria = lancamento.getTipoDespesa().getNome(); // Assumindo que LancamentoCartao tem tipoDespesa
-            double valor = lancamento.getValorTotal().doubleValue(); // Assumindo que LancamentoCartao tem valor como BigDecimal
-            gastosPorCategoria.put(categoria, gastosPorCategoria.getOrDefault(categoria, 0.0) + valor);
+            Long categoriaId = lancamento.getTipoDespesa().getId();
+            double valor = lancamento.getValorTotal().doubleValue();
+            gastosPorCategoria.put(categoriaId, gastosPorCategoria.getOrDefault(categoriaId, 0.0) + valor);
         }
 
+        log.info("Mapa final de gastos por categoria (por id): {}", gastosPorCategoria);
         return gastosPorCategoria;
     }
 

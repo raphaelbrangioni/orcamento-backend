@@ -37,6 +37,7 @@ public class CartaoCreditoService {
         cartaoCredito.setLimite(cataoAtualizado.getLimite());
         cartaoCredito.setDiaVencimento(cataoAtualizado.getDiaVencimento());
         cartaoCredito.setStatus(cataoAtualizado.getStatus());
+        cartaoCredito.setModeloImportacao(cataoAtualizado.getModeloImportacao());
 
 
         return cartaoCreditoRepository.save(cartaoCredito);
