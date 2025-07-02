@@ -8,21 +8,25 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
+/**
+ * Modelo de SalarioPrevisto
+ */
 @Entity
-    @Data // Gera getters, setters, toString, equals e hashCode
-    @NoArgsConstructor // Construtor vazio
-    @AllArgsConstructor // Construtor com todos os campos
-    public class SalarioPrevisto {
+@Data // Gera getters, setters, toString, equals e hashCode
+@NoArgsConstructor // Construtor vazio
+@AllArgsConstructor // Construtor com todos os campos
+public class SalarioPrevisto {
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-        private int ano;
+    private int ano;
 
-        private String mes; // Ex.: "JANUARY", "FEBRUARY", etc.
+    private String mes; // Ex.: "JANUARY", "FEBRUARY", etc.
 
-        private Double valorPrevisto;
-    }
+    private Double valorPrevisto;
 
+    // Multi-tenant: identificação do tenant (CPF do usuário)
+    private String tenantId;
+}

@@ -17,24 +17,28 @@ public class TipoDespesaService {
     private final TipoDespesaRepository tipoDespesaRepository;
 
     public List<TipoDespesa> listarTipos() {
-        return tipoDespesaRepository.findAll();
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return tipoDespesaRepository.findByTenantId(tenantId);
     }
 
     public TipoDespesa cadastrarTipo(TipoDespesa tipo) {
-        if (tipoDespesaRepository.existsByNome(tipo.getNome())) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        if (tipoDespesaRepository.existsByNomeAndTenantId(tipo.getNome(), tenantId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de despesa já existe!");
         }
+        tipo.setTenantId(tenantId);
         return tipoDespesaRepository.save(tipo);
     }
 
     public void excluirTipo(Long id) {
-        tipoDespesaRepository.deleteById(id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        tipoDespesaRepository.deleteByIdAndTenantId(id, tenantId);
     }
 
     public TipoDespesa atualizarTipoDespesa(Long id, TipoDespesa tipoDespesaAtualizado) {
-        // Busca o tipo de despesa no banco, ou lança exceção se não encontrado
-        TipoDespesa tipoDespesaExistente = tipoDespesaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Tipo de despesa não encontrado para o ID: " + id));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        TipoDespesa tipoDespesaExistente = tipoDespesaRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tipo de despesa não encontrado para o ID: " + id + " do tenant atual."));
 
         // Atualiza os campos permitidos
         tipoDespesaExistente.setNome(tipoDespesaAtualizado.getNome());

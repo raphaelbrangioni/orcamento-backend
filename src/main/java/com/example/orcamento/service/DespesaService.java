@@ -37,7 +37,8 @@ public class DespesaService {
     private ConfiguracaoService configuracaoService;
 
     public List<Despesa> listarDespesas() {
-        return despesaRepository.findAll();
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaRepository.findByTenantId(tenantId);
     }
 
     @Transactional
@@ -50,6 +51,8 @@ public class DespesaService {
         }
 
         log.info("Salvando uma despesa: {}", despesa);
+        // Garante que a despesa salva pertence ao tenant logado
+        despesa.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
         Despesa despesaSalva = despesaRepository.save(despesa);
 
         // Integração com MetaEconomia
@@ -89,8 +92,10 @@ public class DespesaService {
 
     @Transactional
     public void excluirDespesa(Long id) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         Despesa despesa = despesaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada com ID: " + id));
+                .filter(d -> tenantId.equals(d.getTenantId()))
+                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada ou não pertence ao tenant atual"));
 
         log.info("Excluindo a despesa: {}", despesa);
 
@@ -117,7 +122,8 @@ public class DespesaService {
     }
 
     public List<Despesa> listarPorTipo(Long tipoId) {
-        return despesaRepository.findByTipoId(tipoId);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaRepository.findByTipoId(tenantId, tipoId);
     }
 
     @Transactional
@@ -200,8 +206,10 @@ public class DespesaService {
 
     @Transactional
     public Despesa atualizarDespesa(Long id, Despesa despesaAtualizada) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         Despesa despesa = despesaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada"));
+                .filter(d -> tenantId.equals(d.getTenantId()))
+                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada ou não pertence ao tenant atual"));
 
         log.info("Atualizando despesa: {} para {}", despesa, despesaAtualizada);
 
@@ -229,11 +237,10 @@ public class DespesaService {
     }
 
     public Map<String, Map<String, BigDecimal>> listarPorMes(int ano, Long tipoId) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         List<Despesa> despesas = tipoId != null
-                ? despesaRepository.findByAnoAndTipoId(ano, tipoId)
-                : despesaRepository.findAll().stream()
-                .filter(d -> d.getDataVencimento().getYear() == ano)
-                .collect(Collectors.toList());
+                ? despesaRepository.findByAnoAndTipoId(tenantId, ano, tipoId)
+                : despesaRepository.findDespesasByAno(tenantId, ano);
 
         return despesas.stream()
                 .collect(Collectors.groupingBy(
@@ -257,11 +264,11 @@ public class DespesaService {
                 ));
     }
 
-
     public Map<Long, Double> calcularGastosPorCategoria(Integer ano, Integer mes) {
         log.info("Calculando gastos por categoria para ano={}, mes={}", ano, mes);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         // 1. Gastos das despesas comuns
-        List<Despesa> despesas = despesaRepository.findByAnoAndMes(ano, mes);
+        List<Despesa> despesas = despesaRepository.findByAnoAndMes(tenantId, ano, mes);
         log.info("Despesas encontradas: {}", despesas.size());
         Map<Long, Double> gastosPorCategoria = new HashMap<>();
 
@@ -273,7 +280,8 @@ public class DespesaService {
         }
 
         // 2. Gastos das faturas de cartão (não lançadas como despesa)
-        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByAnoAndMes(ano, mes);
+        String tenantIdCartao = com.example.orcamento.security.TenantContext.getTenantId();
+        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByAnoAndMesAndTenantId(ano, mes, tenantIdCartao);
         log.info("Lançamentos de cartão encontrados: {}", lancamentos.size());
         for (LancamentoCartao lancamento : lancamentos) {
             Long categoriaId = lancamento.getTipoDespesa().getId();
@@ -286,17 +294,19 @@ public class DespesaService {
     }
 
     public List<Despesa> listarProximasEVencidas(LocalDate dataReferencia, LocalDate dataFim) {
-        return despesaRepository.findVencidasEProximas(dataReferencia, dataFim);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaRepository.findVencidasEProximas(tenantId, dataReferencia, dataFim);
     }
 
-    public List<Despesa> listarDespesasPorPeriodo(LocalDate dataInicio, LocalDate dataFim) {
-        return despesaRepository.findByDataVencimentoBetween(dataInicio, dataFim);
+    public List<Despesa> listarDespesasPorPeriodo(LocalDate inicio, LocalDate fim) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaRepository.findByTenantIdAndDataVencimentoBetween(tenantId, inicio, fim);
     }
-
 
     public List<DespesasMensaisDTO> buscarDespesasPorAno(int ano) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         // Busca todas as despesas do ano informado
-        List<Despesa> despesas = despesaRepository.findDespesasByAno(ano);
+        List<Despesa> despesas = despesaRepository.findDespesasByAno(tenantId, ano);
 
         // Agrupa as despesas por mês (usando Stream API)
         Map<Integer, List<Despesa>> despesasPorMes = despesas.stream()
@@ -309,7 +319,6 @@ public class DespesaService {
                 .collect(Collectors.toList());
     }
 
-
     @Transactional
     public List<Despesa> salvarMultiplasDespesas(List<Despesa> despesas) {
         List<Despesa> despesasSalvas = new ArrayList<>();
@@ -321,8 +330,9 @@ public class DespesaService {
 
     @Transactional
     public void excluirDespesasPorDespesaParceladaId(Long despesaParceladaId) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         // Buscar todas as despesas que são parcelas desta despesa parcelada
-        List<Despesa> parcelas = despesaRepository.findByDespesaParceladaId(despesaParceladaId);
+        List<Despesa> parcelas = despesaRepository.findByDespesaParceladaId(tenantId, despesaParceladaId);
 
         // Excluir cada parcela
         for (Despesa parcela : parcelas) {
@@ -380,23 +390,14 @@ public class DespesaService {
         return despesaRepository.save(despesa);
     }
 
-
-    // No MetaEconomiaService.java
     public List<Despesa> buscarDespesasRelacionadas(Long metaId) {
         // Verificar se a meta existe
         MetaEconomia meta = metaEconomiaService.buscarPorId(metaId)
                 .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada com ID: " + metaId));
-
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         // Buscar despesas relacionadas
-        return despesaRepository.findByMetaEconomiaId(metaId);
+        return despesaRepository.findByMetaEconomiaId(tenantId, metaId);
     }
-
-
-//    // Novo método para filtro dinâmico
-//    public List<Despesa> listarDespesasPorFiltrosDinamicos(Map<String, Object> filtros) {
-//        log.info("Buscando despesas com filtros dinâmicos: {}", filtros);
-//        return despesaRepository.findAll(DespesaSpecification.comFiltros(filtros));
-//    }
 
     public List<Despesa> listarDespesasPorFiltrosDinamicos(Map<String, Object> filtros) {
         log.info("Buscando despesas com filtros dinâmicos: {}", filtros);
@@ -411,8 +412,7 @@ public class DespesaService {
                 default -> filtrosMapeados.put(key, value); // id, detalhes, classificacao, variabilidade, parcela
             }
         });
-        return despesaRepository.findAll(DespesaSpecification.comFiltros(filtrosMapeados));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaRepository.findAll(DespesaSpecification.comFiltros(tenantId, filtrosMapeados));
     }
-
-
 }

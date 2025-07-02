@@ -24,8 +24,9 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
-
-
+/**
+ * Serviço responsável por gerenciar despesas parceladas.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,11 +36,26 @@ public class DespesaParceladaService {
     private final TipoDespesaRepository tipoDespesaRepository;
     private final DespesaService despesaService;
 
+    /**
+     * Lista despesas parceladas com base nos filtros informados.
+     *
+     * @param descricao      Descrição da despesa parcelada.
+     * @param tipoDespesaId  ID do tipo de despesa.
+     * @param pageable       Configurações de paginação.
+     * @return Página de despesas parceladas.
+     */
     public Page<DespesaParcelada> listarDespesasParceladas(
             String descricao, Long tipoDespesaId, Pageable pageable) {
-        return despesaParceladaRepository.findByFiltros(descricao, tipoDespesaId, pageable);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaParceladaRepository.findByFiltros(descricao, tipoDespesaId, tenantId, pageable);
     }
 
+    /**
+     * Salva uma nova despesa parcelada.
+     *
+     * @param dto Dados da despesa parcelada.
+     * @return Despesa parcelada salva.
+     */
     @Transactional
     public DespesaParcelada salvarDespesaParcelada(DespesaParceladaDTO dto) {
         // Buscar tipo de despesa
@@ -58,6 +74,8 @@ public class DespesaParceladaService {
         despesaParcelada.setDetalhes(dto.getDetalhes());
         despesaParcelada.setClassificacao(dto.getClassificacao());
         despesaParcelada.setVariabilidade(dto.getVariabilidade());
+        // Multi-tenant: seta o tenantId do contexto
+        despesaParcelada.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
 
         DespesaParcelada despesaSalva = despesaParceladaRepository.save(despesaParcelada);
 
@@ -67,11 +85,20 @@ public class DespesaParceladaService {
         return despesaSalva;
     }
 
+    /**
+     * Atualiza uma despesa parcelada existente.
+     *
+     * @param id  ID da despesa parcelada.
+     * @param dto Dados da despesa parcelada.
+     * @return Despesa parcelada atualizada.
+     */
     @Transactional
     public DespesaParcelada atualizarDespesaParcelada(Long id, DespesaParceladaDTO dto) {
-        DespesaParcelada despesaExistente = despesaParceladaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Despesa parcelada não encontrada"));
-
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        DespesaParcelada despesaExistente = despesaParceladaRepository.findByIdAndTenantId(id, tenantId);
+        if (despesaExistente == null) {
+            throw new EntityNotFoundException("Despesa parcelada não encontrada ou não pertence ao tenant atual");
+        }
         // Buscar tipo de despesa
         TipoDespesa tipoDespesa = tipoDespesaRepository.findById(dto.getTipoDespesaId())
                 .orElseThrow(() -> new EntityNotFoundException("Tipo de despesa não encontrado"));
@@ -85,31 +112,31 @@ public class DespesaParceladaService {
         despesaExistente.setTipoDespesa(tipoDespesa);
         despesaExistente.setProprietario(dto.getProprietario());
         despesaExistente.setDetalhes(dto.getDetalhes());
-
+        // Não altera tenantId!
         return despesaParceladaRepository.save(despesaExistente);
     }
 
-//    @Transactional
-//    public void excluirDespesaParcelada(Long id) {
-//        // Aqui você pode implementar a lógica para excluir também as despesas (parcelas) associadas
-//        despesaParceladaRepository.deleteById(id);
-//    }
-
+    /**
+     * Exclui uma despesa parcelada.
+     *
+     * @param id ID da despesa parcelada.
+     */
     @Transactional
     public void excluirDespesaParcelada(Long id) {
-        // Primeiro, verificamos se a despesa parcelada existe
-        DespesaParcelada despesaParcelada = despesaParceladaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Despesa parcelada não encontrada"));
-
-        // Excluir todas as parcelas (despesas) associadas a esta despesa parcelada
-        despesaService.excluirDespesasPorDespesaParceladaId(id);
-
-        // Por fim, excluímos a despesa parcelada em si
-        despesaParceladaRepository.deleteById(id);
-
-        log.info("Despesa parcelada ID {} e todas as suas parcelas foram excluídas com sucesso", id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        DespesaParcelada despesa = despesaParceladaRepository.findByIdAndTenantId(id, tenantId);
+        if (despesa == null) {
+            throw new EntityNotFoundException("Despesa parcelada não encontrada ou não pertence ao tenant atual");
+        }
+        // Aqui você pode implementar a lógica para excluir também as despesas (parcelas) associadas
+        despesaParceladaRepository.delete(despesa);
     }
 
+    /**
+     * Gera parcelas para uma despesa parcelada.
+     *
+     * @param despesaParcelada Despesa parcelada.
+     */
     private void gerarParcelas(DespesaParcelada despesaParcelada) {
         int numeroParcelas = despesaParcelada.getNumeroParcelas();
         BigDecimal valorParcela = despesaParcelada.getValorTotal()
@@ -155,7 +182,6 @@ public class DespesaParceladaService {
             parcela.setNome(despesaParcelada.getDescricao() + " - Parcela " + (i + 1) + "/" + numeroParcelas);
             parcela.setClassificacao(despesaParcelada.getClassificacao());
             parcela.setVariabilidade(despesaParcelada.getVariabilidade());
-
 
             // Salvar a parcela
             despesaService.salvarDespesa(parcela);

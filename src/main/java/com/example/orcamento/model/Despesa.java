@@ -24,6 +24,9 @@ public class Despesa {
     private String nome;
 
     @Column(nullable = false)
+    private String tenantId;
+
+    @Column(nullable = false)
     private BigDecimal valorPrevisto; // 🔹 Valor estimado da despesa
 
     private BigDecimal valorPago; // 🔹 Valor real pago (pode ser null até o pagamento)

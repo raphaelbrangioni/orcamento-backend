@@ -21,6 +21,9 @@ public class Movimentacao {
     private Long id;
 
     @Column(nullable = false)
+    private String tenantId;
+
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private TipoMovimentacao tipo; // "ENTRADA" ou "SAIDA"
 

@@ -3,6 +3,7 @@ package com.example.orcamento.service;
 
 import com.example.orcamento.model.ContaCorrente;
 import com.example.orcamento.repository.ContaCorrenteRepository;
+import com.example.orcamento.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,21 +24,25 @@ public class ContaCorrenteService {
 
     @Transactional
     public ContaCorrente salvar(ContaCorrente conta) {
+        conta.setTenantId(TenantContext.getTenantId());
         return contaCorrenteRepository.save(conta);
     }
 
     public List<ContaCorrente> listarTodos() {
-        return contaCorrenteRepository.findAll();
+        String tenantId = TenantContext.getTenantId();
+        return contaCorrenteRepository.findByTenantId(tenantId);
     }
 
     public Optional<ContaCorrente> buscarPorId(Long id) {
-        return contaCorrenteRepository.findById(id);
+        String tenantId = TenantContext.getTenantId();
+        return contaCorrenteRepository.findByIdAndTenantId(id, tenantId);
     }
 
     @Transactional
     public void atualizarSaldo(Long contaId, BigDecimal valor, boolean isEntrada, LocalDateTime data) {
-        ContaCorrente conta = contaCorrenteRepository.findById(contaId)
-                .orElseThrow(() -> new IllegalArgumentException("Conta corrente não encontrada com ID: " + contaId));
+        String tenantId = TenantContext.getTenantId();
+        ContaCorrente conta = contaCorrenteRepository.findByIdAndTenantId(contaId, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Conta corrente não encontrada com ID: " + contaId + " para o tenant atual."));
         log.info("Conta corrente atualizada com ID: " + conta.toString());
 
         BigDecimal novoSaldo = isEntrada
@@ -46,19 +51,20 @@ public class ContaCorrenteService {
         conta.setSaldo(novoSaldo);
         log.info("Novo saldo : " + novoSaldo);
 
-
         contaCorrenteRepository.save(conta);
     }
 
     @Transactional
     public void deletar(Long id) {
-        contaCorrenteRepository.deleteById(id);
+        String tenantId = TenantContext.getTenantId();
+        contaCorrenteRepository.deleteByIdAndTenantId(id, tenantId);
     }
 
     @Transactional
     public ContaCorrente atualizarConta(Long id, ContaCorrente contaAtualizada) {
-        ContaCorrente conta = contaCorrenteRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Conta corrente não encontrada: " + id));
+        String tenantId = TenantContext.getTenantId();
+        ContaCorrente conta = contaCorrenteRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Conta corrente não encontrada para o tenant atual: " + id));
 
         conta.setNomeBanco(contaAtualizada.getNomeBanco());
         conta.setAgencia(contaAtualizada.getAgencia());
@@ -67,6 +73,4 @@ public class ContaCorrenteService {
 
         return contaCorrenteRepository.save(conta);
     }
-
-
 }

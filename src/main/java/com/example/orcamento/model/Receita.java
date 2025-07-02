@@ -20,6 +20,9 @@ public class Receita {
     private Long id;
 
     @Column(nullable = false)
+    private String tenantId;
+
+    @Column(nullable = false)
     private String descricao;
 
     @Column(nullable = false)

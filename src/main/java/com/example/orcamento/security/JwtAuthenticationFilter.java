@@ -46,6 +46,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // Pega o tenantId do token e coloca no contexto
+                    String tenantId = jwtUtil.extractTenantId(token);
+                    TenantContext.setTenantId(tenantId);
                 } else {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     return;
@@ -68,5 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Caso o token seja válido ou não seja necessário, continua o fluxo
         filterChain.doFilter(request, response);
+        // Limpa o contexto do tenant ao final da request
+        TenantContext.clear();
     }
 }

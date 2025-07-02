@@ -37,7 +37,8 @@ public class LancamentoCartaoService {
     }
 
     public List<LancamentoCartao> listarLancamentos() {
-        return lancamentoCartaoRepository.findAll();
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return lancamentoCartaoRepository.findByTenantId(tenantId);
     }
 
     public void excluirLancamento(Long id) {
@@ -105,8 +106,9 @@ public class LancamentoCartaoService {
                     // Preenchendo o mapa com os meses na ordem fixa
                     for (String mes : mesesOrdenados) {
                         String mesAnoFatura = mes + "/" + ano;
+                        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
                         BigDecimal valorFatura = lancamentoCartaoRepository
-                                .getFaturaDoMes(cartaoId, mesAnoFatura);
+                                .getFaturaDoMes(cartaoId, mesAnoFatura, tenantId);
 
                         faturasPorMes.put(mes, valorFatura != null ? valorFatura : BigDecimal.ZERO);
                     }
@@ -139,7 +141,8 @@ public class LancamentoCartaoService {
     public List<LancamentoCartao> listarLancamentosPorFiltros(Long cartaoId, String mesAnoFatura) {
         log.info("Buscando lançamentos com filtros - cartaoId: {}, mesAnoFatura: {}", cartaoId, mesAnoFatura);
 
-        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByCartaoAndMesAno(cartaoId, mesAnoFatura);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByCartaoAndMesAno(cartaoId, mesAnoFatura, tenantId);
         return lancamentos;
     }
 
@@ -165,7 +168,8 @@ public class LancamentoCartaoService {
     // Método atualizado para incluir filtro opcional mesAnoFatura
     public List<LancamentoCartao> listarLancamentosTerceiros(String mesAnoFatura) {
         log.info("Buscando lançamentos com proprietario = Terceiros e mesAnoFatura = {}", mesAnoFatura);
-        return lancamentoCartaoRepository.findByProprietarioAndMesAnoFatura("Terceiros", mesAnoFatura);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return lancamentoCartaoRepository.findByProprietarioAndMesAnoFatura("Terceiros", mesAnoFatura, tenantId);
     }
 
 //    // Novo método para filtro dinâmico

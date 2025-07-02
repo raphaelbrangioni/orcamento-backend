@@ -26,4 +26,35 @@ public class Usuario {
 
     @Column(unique = true, nullable = false)
     private String email;
+
+    @Column(nullable = false)
+    private String tenantId;
+
+    @Column(name = "ativo", nullable = false, columnDefinition = "BIT(1)")
+    private boolean ativo;
+
+    @Column(nullable = false)
+    private boolean admin;
+
+    @Column(length = 100)
+    private String token;
+
+    @Column(nullable = false)
+    private boolean primeiroLogin = true;
+
+    @Column(name = "data_cadastro", nullable = false)
+    private java.time.LocalDateTime dataCadastro;
+
+    @Column(name = "data_primeiro_login")
+    private java.time.LocalDateTime dataPrimeiroLogin;
+
+    @Column(length = 120, nullable = false)
+    private String nome;
+
+    @PrePersist
+    public void prePersist() {
+        if (dataCadastro == null) {
+            dataCadastro = java.time.LocalDateTime.now();
+        }
+    }
 }

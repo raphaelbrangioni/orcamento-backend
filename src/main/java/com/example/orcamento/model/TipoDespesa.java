@@ -17,5 +17,7 @@ public class TipoDespesa {
 
     @Column(nullable = false, unique = true)
     private String nome;
-}
 
+    @Column(nullable = false)
+    private String tenantId;
+}

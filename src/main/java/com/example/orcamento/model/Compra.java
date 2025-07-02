@@ -60,4 +60,7 @@ public class Compra {
     @Enumerated(EnumType.STRING)
     @Column(name = "variabilidade")
     private TipoVariabilidadeDespesa variabilidade;
+
+    @Column(name = "tenant_id", nullable = false, length = 20)
+    private String tenantId;
 }

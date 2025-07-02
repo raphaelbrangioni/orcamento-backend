@@ -18,4 +18,7 @@ public class Limite {
 
     @Column(nullable = false)
     private Double valor;
+
+    @Column(nullable = false)
+    private String tenantId;
 }

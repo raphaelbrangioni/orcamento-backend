@@ -25,7 +25,8 @@ public class AnaliseFinanceiraService {
     public List<GastoRecorrenteDTO> analisarGastosRecorrentes() {
         // Busca despesas dos últimos 6 meses
         LocalDate dataInicial = LocalDate.now().minusMonths(6);
-        List<Despesa> despesas = despesaRepository.findDespesasParaAnalise(dataInicial);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Despesa> despesas = despesaRepository.findDespesasParaAnalise(tenantId, dataInicial);
 
         // Agrupa por nome e tipo
         Map<String, List<Despesa>> despesasAgrupadas = despesas.stream()
@@ -73,7 +74,8 @@ public class AnaliseFinanceiraService {
         // Analisa variações por categoria nos últimos 3 meses
         LocalDate dataInicial = LocalDate.now().minusMonths(3);
         LocalDate dataFinal = LocalDate.now();
-        List<Despesa> despesas = despesaRepository.findByDataVencimentoBetween(dataInicial, dataFinal);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Despesa> despesas = despesaRepository.findByDataVencimentoBetween(tenantId, dataInicial, dataFinal);
 
         Map<String, List<Despesa>> despesasPorCategoria = despesas.stream()
                 .collect(Collectors.groupingBy(d -> d.getTipo().getNome()));
@@ -195,7 +197,8 @@ public class AnaliseFinanceiraService {
         // Analisa últimos 3 meses para fazer previsão
         LocalDate dataInicial = LocalDate.now().minusMonths(3);
         LocalDate dataFinal = LocalDate.now();
-        List<Despesa> despesas = despesaRepository.findByDataVencimentoBetween(dataInicial, dataFinal);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Despesa> despesas = despesaRepository.findByDataVencimentoBetween(tenantId, dataInicial, dataFinal);
 
         Map<String, List<Despesa>> despesasPorCategoria = despesas.stream()
                 .collect(Collectors.groupingBy(d -> d.getTipo().getNome()));

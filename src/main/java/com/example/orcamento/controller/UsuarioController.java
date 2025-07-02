@@ -40,33 +40,69 @@ public class UsuarioController {
     @PostMapping("/register")
     public ResponseEntity<UsuarioDTO> register(@RequestBody UsuarioDTO usuarioDTO) {
         Usuario usuario = usuarioService.criarUsuario(
-                usuarioDTO.getUsername(),
-                usuarioDTO.getPassword(),
-                usuarioDTO.getEmail()
+            usuarioDTO.getUsername(),
+            usuarioDTO.getPassword(),
+            usuarioDTO.getNome(),
+            usuarioDTO.getEmail(),
+            usuarioDTO.getTenantId(),
+            usuarioDTO.isAtivo(),
+            usuarioDTO.isAdmin(),
+            usuarioDTO.isPrimeiroLogin(),
+            usuarioDTO.getToken()
         );
+        return ResponseEntity.ok(new UsuarioDTO(
+            usuario.getId(),
+            usuario.getUsername(),
+            usuario.getNome(),
+            null,
+            usuario.getEmail(),
+            usuario.getTenantId(),
+            usuario.isAtivo(),
+            usuario.isAdmin(),
+            usuario.getToken(),
+            usuario.isPrimeiroLogin(),
+            usuario.getDataCadastro(),
+            usuario.getDataPrimeiroLogin()
+        ));
+    }
 
-        return ResponseEntity.ok(new UsuarioDTO(usuario.getId(), usuario.getUsername(), usuario.getEmail()));
+    // Novo registro de usuário com token para primeiro login
+    @PostMapping("/register-with-token")
+    public ResponseEntity<UsuarioDTO> registerComToken(@RequestBody UsuarioDTO usuarioDTO) {
+        Usuario usuario = usuarioService.criarUsuario(
+            usuarioDTO.getUsername(),
+            usuarioDTO.getPassword(),
+            usuarioDTO.getNome(),
+            usuarioDTO.getEmail(),
+            usuarioDTO.getTenantId(),
+            usuarioDTO.isAtivo(),
+            usuarioDTO.isAdmin(),
+            usuarioDTO.isPrimeiroLogin(),
+            usuarioDTO.getToken()
+        );
+        return ResponseEntity.ok(new UsuarioDTO(
+            usuario.getId(), usuario.getUsername(), usuario.getNome(), null, usuario.getEmail(), usuario.getTenantId(),
+            usuario.isAtivo(), usuario.isAdmin(), usuario.getToken(), usuario.isPrimeiroLogin(), usuario.getDataCadastro(), usuario.getDataPrimeiroLogin()
+        ));
     }
 
     // Método para listar todos os usuários
     @GetMapping("/users")
     public ResponseEntity<List<UsuarioDTO>> listarUsuarios() {
-
-        UsuarioDTO dto = new UsuarioDTO();
-        List<UsuarioDTO> usuariosDTO = new ArrayList<>();
-
         List<Usuario> usuarios = usuarioService.listarUsuarios();
-        for (Usuario usuario : usuarios) {
-            System.out.println("Usuário: " + usuario.getUsername());
-
-            dto.setId(usuario.getId());
-            dto.setUsername(usuario.getUsername());
-            dto.setEmail(usuario.getEmail());
-
-        }
-        usuariosDTO.add(dto);
-
-
+        List<UsuarioDTO> usuariosDTO = usuarios.stream().map(usuario -> new UsuarioDTO(
+            usuario.getId(),
+            usuario.getUsername(),
+            null, // Nunca retorne a senha!
+            usuario.getEmail(),
+            usuario.getTenantId(),
+            usuario.isAtivo(),
+            usuario.isAdmin(),
+            usuario.getToken(),
+            usuario.isPrimeiroLogin(),
+            usuario.getDataCadastro(),
+            usuario.getDataPrimeiroLogin()
+        )).collect(Collectors.toList());
         return ResponseEntity.ok(usuariosDTO);
     }
 
@@ -90,13 +126,20 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
 
-        UsuarioDTO dto = UsuarioDTO.builder()
-                .email(usuario.getEmail())
-                .username(usuario.getUsername())
-                .id(usuario.getId())
-                .password(usuario.getPassword())
-                .build();
-
+        UsuarioDTO dto = new UsuarioDTO(
+            usuario.getId(),
+            usuario.getUsername(),
+            usuario.getNome(),
+            null, // nunca retorne senha
+            usuario.getEmail(),
+            usuario.getTenantId(),
+            usuario.isAtivo(),
+            usuario.isAdmin(),
+            usuario.getToken(),
+            usuario.isPrimeiroLogin(),
+            usuario.getDataCadastro(),
+            usuario.getDataPrimeiroLogin()
+        );
         return ResponseEntity.ok(dto);
     }
 
@@ -126,5 +169,62 @@ public class UsuarioController {
             log.error("Erro ao trocar senha para usuário autenticado: ", e);
             return ResponseEntity.status(500).body("Erro ao trocar senha: " + e.getMessage());
         }
+    }
+
+    // Endpoint para validar token no primeiro login
+    @PostMapping("/primeiro-login")
+    public ResponseEntity<String> validarTokenPrimeiroLogin(@RequestParam String username, @RequestParam String token) {
+        boolean valido = usuarioService.validarTokenPrimeiroLogin(username, token);
+        if (valido) {
+            return ResponseEntity.ok("Token válido, primeiro login realizado!");
+        } else {
+            return ResponseEntity.status(400).body("Token inválido ou já utilizado.");
+        }
+    }
+
+    // Atualiza usuário por ID (qualquer campo, inclusive ativo/admin)
+    @PutMapping("/users/{id}")
+    public ResponseEntity<UsuarioDTO> atualizarUsuario(@PathVariable Long id, @RequestBody UsuarioDTO usuarioDTO) {
+        Usuario usuarioAtualizado = new Usuario();
+        usuarioAtualizado.setUsername(usuarioDTO.getUsername());
+        usuarioAtualizado.setEmail(usuarioDTO.getEmail());
+        usuarioAtualizado.setTenantId(usuarioDTO.getTenantId());
+        usuarioAtualizado.setPassword(usuarioDTO.getPassword());
+        usuarioAtualizado.setAtivo(usuarioDTO.isAtivo());
+        usuarioAtualizado.setAdmin(usuarioDTO.isAdmin());
+        Usuario usuario = usuarioService.atualizarUsuario(id, usuarioAtualizado);
+        return ResponseEntity.ok(new UsuarioDTO(usuario.getId(), usuario.getUsername(), usuario.getEmail(), usuario.getTenantId(), usuario.isAtivo(), usuario.isAdmin()));
+    }
+
+    // Endpoint restrito: lista todos os usuários, só acessível pelo tenantId master
+    @GetMapping("/all-users")
+    public ResponseEntity<List<UsuarioDTO>> listarTodosUsuariosRestrito() {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        if (!"06660607625".equals(tenantId)) {
+            return ResponseEntity.status(403).build();
+        }
+        List<Usuario> usuarios = usuarioService.listarUsuarios();
+        List<UsuarioDTO> usuariosDTO = new ArrayList<>();
+        for (Usuario u : usuarios) {
+            log.info("Usuario do banco: id={}, username={}, ativo={}, admin={}, email={}, tenantId={}, dataCadastro={}, dataPrimeiroLogin={}",
+                u.getId(), u.getUsername(), u.isAtivo(), u.isAdmin(), u.getEmail(), u.getTenantId(), u.getDataCadastro(), u.getDataPrimeiroLogin());
+            UsuarioDTO dto = new UsuarioDTO(
+                u.getId(),
+                u.getUsername(),
+                u.getNome(),
+                null, // nunca retorne senha
+                u.getEmail(),
+                u.getTenantId(),
+                u.isAtivo(),
+                u.isAdmin(),
+                u.getToken(),
+                u.isPrimeiroLogin(),
+                u.getDataCadastro(),
+                u.getDataPrimeiroLogin()
+            );
+            log.info("DTO gerado: {}", dto);
+            usuariosDTO.add(dto);
+        }
+        return ResponseEntity.ok(usuariosDTO);
     }
 }

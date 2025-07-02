@@ -34,18 +34,9 @@ public class TransacaoFinanceiraController {
     public ResponseEntity<List<TransacaoFinanceiraDTO>> listarTransacoes() {
         log.info("Requisição GET em /api/v1/transacoes, listarTransacoes");
 
-        List<TransacaoFinanceiraDTO> despesas = despesaService.listarDespesas()
-                .stream()
-                .map(TransacaoFinanceiraDTO::new)
-                .collect(Collectors.toList());
-
-        List<TransacaoFinanceiraDTO> lancamentos = lancamentoCartaoService.listarLancamentos()
-                .stream()
-                .map(TransacaoFinanceiraDTO::new)
-                .collect(Collectors.toList());
-
-        despesas.addAll(lancamentos);
-        return ResponseEntity.ok(despesas);
+        // O service já faz o filtro multi-tenant
+        List<TransacaoFinanceiraDTO> transacoes = transacaoFinanceiraService.filtrarTransacoesDinamico(new HashMap<>());
+        return ResponseEntity.ok(transacoes);
     }
 
     @GetMapping("/filtrar-dinamico")

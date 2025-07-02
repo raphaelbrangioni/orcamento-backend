@@ -11,11 +11,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface DespesaParceladaRepository extends JpaRepository<DespesaParcelada, Long> {
 
-    @Query("SELECT dp FROM DespesaParcelada dp WHERE " +
+    @Query("SELECT dp FROM DespesaParcelada dp WHERE dp.tenantId = :tenantId AND " +
             "(:descricao IS NULL OR LOWER(dp.descricao) LIKE LOWER(CONCAT('%', :descricao, '%'))) AND " +
             "(:tipoDespesaId IS NULL OR dp.tipoDespesa.id = :tipoDespesaId)")
     Page<DespesaParcelada> findByFiltros(
             @Param("descricao") String descricao,
             @Param("tipoDespesaId") Long tipoDespesaId,
+            @Param("tenantId") String tenantId,
             Pageable pageable);
+
+    @Query("SELECT dp FROM DespesaParcelada dp WHERE dp.id = :id AND dp.tenantId = :tenantId")
+    DespesaParcelada findByIdAndTenantId(@Param("id") Long id, @Param("tenantId") String tenantId);
 }

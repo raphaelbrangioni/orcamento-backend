@@ -8,7 +8,6 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
 
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -17,9 +16,12 @@ import java.util.Map;
 
 public class DespesaSpecification {
 
-    public static Specification<Despesa> comFiltros(Map<String, Object> filtros) {
+    public static Specification<Despesa> comFiltros(String tenantId, Map<String, Object> filtros) {
         return (Root<Despesa> root, CriteriaQuery<?> query, CriteriaBuilder builder) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            // Sempre filtrar pelo tenantId
+            predicates.add(builder.equal(root.get("tenantId"), tenantId));
 
             if (filtros.containsKey("id") && filtros.get("id") != null) {
                 predicates.add(builder.equal(root.get("id"), filtros.get("id")));

@@ -19,7 +19,8 @@ public class RelatorioService {
     private final DespesaRepository despesaRepository; // Novo repositório
 
     public List<Map<String, Object>> getGastosPorTipoDespesa(String mesAnoFatura, Long cartaoId, String proprietario) {
-        List<Object[]> resultados = lancamentoCartaoRepository.findGastosPorTipoDespesa(mesAnoFatura, cartaoId, proprietario);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Object[]> resultados = lancamentoCartaoRepository.findGastosPorTipoDespesa(mesAnoFatura, cartaoId, proprietario, tenantId);
         return resultados.stream()
                 .map(result -> Map.of(
                         "tipoDespesa", result[0] != null ? result[0] : "Sem Tipo",
@@ -30,7 +31,8 @@ public class RelatorioService {
 
     // Adicione ao existente
     public List<Map<String, Object>> getGastosPorCartaoCredito(String mesAnoFatura) {
-        List<Object[]> resultados = lancamentoCartaoRepository.findGastosPorCartaoCredito(mesAnoFatura);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Object[]> resultados = lancamentoCartaoRepository.findGastosPorCartaoCredito(mesAnoFatura, tenantId);
         return resultados.stream()
                 .map(result -> Map.of(
                         "cartao", result[0],
@@ -41,7 +43,8 @@ public class RelatorioService {
 
     // Novo método para despesas gerais
     public List<Map<String, Object>> getDespesasPorTipo(LocalDate dataInicio, LocalDate dataFim, Long tipoDespesaId) {
-        List<Object[]> resultados = despesaRepository.findDespesasPorTipo(dataInicio, dataFim, tipoDespesaId);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Object[]> resultados = despesaRepository.findDespesasPorTipo(tenantId, dataInicio, dataFim, tipoDespesaId);
         return resultados.stream()
                 .map(result -> Map.of(
                         "tipoDespesaId", result[0] != null ? result[0] : null,

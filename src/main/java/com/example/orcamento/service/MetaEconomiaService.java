@@ -23,24 +23,28 @@ public class MetaEconomiaService {
 
 
     public List<MetaEconomia> listarMetas() {
-        return repository.findAll();
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return repository.findByTenantId(tenantId);
     }
 
     public MetaEconomia salvarMeta(MetaEconomia meta) {
+        meta.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
         return repository.save(meta);
     }
 
     public void excluirMeta(Long id) {
-        repository.deleteById(id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        repository.deleteByIdAndTenantId(id, tenantId);
     }
 
     public Optional<MetaEconomia> buscarPorId(Long id) {
-        return repository.findById(id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return repository.findByIdAndTenantId(id, tenantId);
     }
 
     @Transactional
     public MetaEconomia atualizarFracaoBitcoin(Long id, Double fracaoBitcoin) {
-        MetaEconomia meta = repository.findById(id)
+        MetaEconomia meta = repository.findByIdAndTenantId(id, com.example.orcamento.security.TenantContext.getTenantId())
                 .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada: " + id));
         meta.setFracaoBitcoin(fracaoBitcoin);
         return repository.save(meta);
@@ -55,7 +59,8 @@ public class MetaEconomiaService {
                 .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada com ID: " + metaId));
 
         // Buscar todas as despesas associadas a esta meta
-        List<Despesa> despesas = despesaRepository.findByMetaEconomiaId(metaId);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Despesa> despesas = despesaRepository.findByMetaEconomiaId(tenantId, metaId);
 
         // Remover a associação com a meta
         for (Despesa despesa : despesas) {
@@ -69,7 +74,8 @@ public class MetaEconomiaService {
     @Transactional
     public void excluirMetaComDespesas(Long metaId) {
         // Buscar todas as despesas associadas a esta meta
-        List<Despesa> despesas = despesaRepository.findByMetaEconomiaId(metaId);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Despesa> despesas = despesaRepository.findByMetaEconomiaId(tenantId, metaId);
 
         // Remover a associação
         for (Despesa despesa : despesas) {
@@ -78,6 +84,6 @@ public class MetaEconomiaService {
         }
 
         // Excluir a meta
-        repository.deleteById(metaId);
+        repository.deleteByIdAndTenantId(metaId, tenantId);
     }
 }

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
 import java.math.BigDecimal;
 
 @Entity
@@ -35,6 +34,9 @@ public class ContaCorrente {
 
     @Column(name = "usuario_id")
     private Long usuarioId;
+
+    @Column(nullable = false)
+    private String tenantId;
 
     // Métodos para atualizar saldo (mantidos explicitamente)
     public void adicionarValor(BigDecimal valor) {

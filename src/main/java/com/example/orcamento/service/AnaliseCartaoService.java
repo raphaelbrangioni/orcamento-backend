@@ -1,7 +1,5 @@
 package com.example.orcamento.service;
 
-
-
 import com.example.orcamento.dto.GastoRecorrenteCartaoDTO;
 import com.example.orcamento.dto.PrevisaoGastoCartaoDTO;
 import com.example.orcamento.dto.SugestaoEconomiaCartaoDTO;
@@ -32,7 +30,8 @@ public class AnaliseCartaoService {
     public List<GastoRecorrenteCartaoDTO> getGastosRecorrentes() {
         // Buscar lançamentos de cartão dos últimos 6 meses
         LocalDate dataInicio = LocalDate.now().minusMonths(6);
-        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByDataCompraAfter(dataInicio);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByDataCompraAfterAndTenantId(dataInicio, tenantId);
 
         // Agrupar por descrição para identificar gastos recorrentes
         Map<String, List<LancamentoCartao>> lancamentosPorDescricao = lancamentos.stream()
@@ -91,7 +90,8 @@ public class AnaliseCartaoService {
     public List<SugestaoEconomiaCartaoDTO> getSugestoesEconomia() {
         // Buscar lançamentos recentes
         LocalDate dataInicio = LocalDate.now().minusMonths(3);
-        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByDataCompraAfter(dataInicio);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByDataCompraAfterAndTenantId(dataInicio, tenantId);
 
         List<SugestaoEconomiaCartaoDTO> sugestoes = new ArrayList<>();
 
@@ -150,7 +150,8 @@ public class AnaliseCartaoService {
     public List<PrevisaoGastoCartaoDTO> getPrevisoes() {
         // Buscar lançamentos dos últimos 6 meses
         LocalDate dataInicio = LocalDate.now().minusMonths(6);
-        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByDataCompraAfter(dataInicio);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByDataCompraAfterAndTenantId(dataInicio, tenantId);
 
         // Agrupar por categoria e cartão
         Map<String, List<LancamentoCartao>> lancamentosPorCategoriaECartao = new HashMap<>();

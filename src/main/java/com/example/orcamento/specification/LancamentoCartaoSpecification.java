@@ -18,6 +18,10 @@ public class LancamentoCartaoSpecification {
         return (Root<LancamentoCartao> root, CriteriaQuery<?> query, CriteriaBuilder builder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            // Sempre filtrar pelo tenantId
+            String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+            predicates.add(builder.equal(root.get("tenantId"), tenantId));
+
             if (filtros.containsKey("id") && filtros.get("id") != null) {
                 predicates.add(builder.equal(root.get("id"), filtros.get("id")));
             }

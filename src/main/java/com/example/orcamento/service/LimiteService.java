@@ -2,6 +2,7 @@ package com.example.orcamento.service;
 
 import com.example.orcamento.model.Limite;
 import com.example.orcamento.repository.LimiteRepository;
+import com.example.orcamento.security.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,18 +15,22 @@ public class LimiteService {
     private LimiteRepository limiteRepository;
 
     public Limite salvarLimite(Limite limite) {
+        limite.setTenantId(TenantContext.getTenantId());
         return limiteRepository.save(limite);
     }
 
     public List<Limite> listarUltimos10Limites() {
-        return limiteRepository.findTop10ByOrderByIdDesc();
+        String tenantId = TenantContext.getTenantId();
+        return limiteRepository.findTop10ByTenantIdOrderByIdDesc(tenantId);
     }
 
     public List<Limite> listarPorTipoDespesa(Long tipoDespesaId) {
-        return limiteRepository.findByTipoDespesaId(tipoDespesaId);
+        String tenantId = TenantContext.getTenantId();
+        return limiteRepository.findByTipoDespesaIdAndTenantId(tipoDespesaId, tenantId);
     }
 
     public void deletarLimite(Long id) {
-        limiteRepository.deleteById(id);
+        String tenantId = TenantContext.getTenantId();
+        limiteRepository.deleteByIdAndTenantId(id, tenantId);
     }
 }

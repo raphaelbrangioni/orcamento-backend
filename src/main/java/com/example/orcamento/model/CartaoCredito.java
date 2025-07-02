@@ -29,4 +29,7 @@ public class CartaoCredito {
 
     @Column(nullable = false)
     private String modeloImportacao = "generico";
+
+    @Column(nullable = false)
+    private String tenantId;
 }

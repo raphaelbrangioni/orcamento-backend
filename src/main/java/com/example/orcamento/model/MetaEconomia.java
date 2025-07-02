@@ -24,4 +24,7 @@ public class MetaEconomia {
     @Enumerated(EnumType.STRING) // Mapeia o enum como texto no banco de dados
     @Column(name = "tipo_investimento", nullable = false)
     private TipoInvestimento tipoInvestimento;
+
+    @Column(nullable = false)
+    private String tenantId;
 }

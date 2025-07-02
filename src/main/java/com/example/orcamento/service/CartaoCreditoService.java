@@ -17,28 +17,44 @@ public class CartaoCreditoService {
     private final CartaoCreditoRepository cartaoCreditoRepository;
 
     public CartaoCredito salvarCartao(CartaoCredito cartao) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalStateException("Usuário sem tenant vinculado. Não é possível cadastrar cartão de crédito.");
+        }
+        cartao.setTenantId(tenantId);
         return cartaoCreditoRepository.save(cartao);
     }
 
     public List<CartaoCredito> listarCartoes() {
-        return cartaoCreditoRepository.findAll();
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalStateException("Usuário sem tenant vinculado. Não é possível listar cartões de crédito.");
+        }
+        return cartaoCreditoRepository.findByTenantId(tenantId);
     }
 
     public void excluirCartao(Long id) {
-        cartaoCreditoRepository.deleteById(id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalStateException("Usuário sem tenant vinculado. Não é possível excluir cartão de crédito.");
+        }
+        cartaoCreditoRepository.deleteByIdAndTenantId(id, tenantId);
     }
 
     @Transactional
     public CartaoCredito atualizarCartao(Long id, CartaoCredito cataoAtualizado) {
-        CartaoCredito cartaoCredito = cartaoCreditoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrada: " + id));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalStateException("Usuário sem tenant vinculado. Não é possível atualizar cartão de crédito.");
+        }
+        CartaoCredito cartaoCredito = cartaoCreditoRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrada para o tenant atual: " + id));
 
         cartaoCredito.setNome(cataoAtualizado.getNome());
         cartaoCredito.setLimite(cataoAtualizado.getLimite());
         cartaoCredito.setDiaVencimento(cataoAtualizado.getDiaVencimento());
         cartaoCredito.setStatus(cataoAtualizado.getStatus());
         cartaoCredito.setModeloImportacao(cataoAtualizado.getModeloImportacao());
-
 
         return cartaoCreditoRepository.save(cartaoCredito);
     }
@@ -47,15 +63,17 @@ public class CartaoCreditoService {
      * Retorna um cartão pelo ID. Lança EntityNotFoundException se não existir.
      */
     public CartaoCredito buscarPorId(Long id) {
-        return cartaoCreditoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrado: " + id));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return cartaoCreditoRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrado para o tenant atual: " + id));
     }
 
     /**
      * Retorna um mapa de IDs para nomes dos cartões cadastrados.
      */
     public Map<Long, String> mapearIdParaNome() {
-        return cartaoCreditoRepository.findAll().stream()
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return cartaoCreditoRepository.findByTenantId(tenantId).stream()
                 .collect(Collectors.toMap(CartaoCredito::getId, CartaoCredito::getNome));
     }
 }

@@ -24,7 +24,7 @@ public class MovimentacaoService {
     @Transactional
     public void registrarMovimentacao(Movimentacao movimentacao) {
         log.info("Registrando movimentação: {}", movimentacao);
-
+        movimentacao.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
         // Atualiza o saldo da conta corrente
         boolean isEntrada = movimentacao.getTipo() == TipoMovimentacao.ENTRADA;
         log.info("Entrada: {}", isEntrada);
@@ -33,7 +33,7 @@ public class MovimentacaoService {
                 movimentacao.getContaCorrente().getId(),
                 movimentacao.getValor(),
                 isEntrada,
-                movimentacao.getDataCadastro() // Usa a dataCadastro da movimentação
+                movimentacao.getDataCadastro()
         );
 
         // Salva a movimentação
@@ -41,14 +41,16 @@ public class MovimentacaoService {
     }
 
     public List<Movimentacao> listarMovimentacoes(LocalDate dataInicio, LocalDate dataFim) {
-        return movimentacaoRepository.findByDataRecebimentoBetween(dataInicio, dataFim);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return movimentacaoRepository.findByDataRecebimentoBetweenAndTenantId(dataInicio, dataFim, tenantId);
     }
 
     public List<Movimentacao> listarMovimentacoesPorConta(Long contaCorrenteId, LocalDate dataInicio, LocalDate dataFim) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         if (contaCorrenteId == null) {
             return listarMovimentacoes(dataInicio, dataFim);
         }
-        return movimentacaoRepository.findByContaCorrenteIdAndDataRecebimentoBetween(contaCorrenteId, dataInicio, dataFim);
+        return movimentacaoRepository.findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, tenantId, dataInicio, dataFim);
     }
 
 }

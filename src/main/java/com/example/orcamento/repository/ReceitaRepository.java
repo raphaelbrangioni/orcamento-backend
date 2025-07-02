@@ -11,4 +11,6 @@ import java.util.List;
 @Repository
 public interface ReceitaRepository extends JpaRepository<Receita, Long> {
     List<Receita> findByDataRecebimentoBetween(LocalDate inicio, LocalDate fim);
+    List<Receita> findByTenantId(String tenantId);
+    List<Receita> findByDataRecebimentoBetweenAndTenantId(LocalDate inicio, LocalDate fim, String tenantId);
 }

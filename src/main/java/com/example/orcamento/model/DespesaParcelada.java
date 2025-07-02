@@ -5,10 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
+
 @Entity
 @Table(name = "despesa_parcelada")
 @Data
@@ -43,6 +43,9 @@ public class DespesaParcelada {
     @Enumerated(EnumType.STRING)
     @Column(name = "variabilidade")
     private TipoVariabilidadeDespesa variabilidade;
+
+    @Column(name = "tenant_id", nullable = false, length = 20)
+    private String tenantId;
 
     @PrePersist
     public void prePersist() {

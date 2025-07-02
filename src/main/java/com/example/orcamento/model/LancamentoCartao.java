@@ -57,6 +57,9 @@ public class LancamentoCartao {
     @Column(name = "data_registro", nullable = false, updatable = false)
     private LocalDateTime dataRegistro;
 
+    // Multi-tenant: identificação do tenant (CPF do usuário)
+    @Column(nullable = false)
+    private String tenantId;
 
     @ManyToOne
     @JoinColumn(name = "compra_id")

@@ -66,6 +66,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/pdf/**").authenticated()
                         .requestMatchers("/api/v1/configuracoes/**").authenticated()
                         .requestMatchers("/api/v1/api/v1/auth/trocar-senha").authenticated()
+                        .requestMatchers("/api/v1/auth/all-users").authenticated()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/webjars/**", "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
                         .anyRequest().denyAll()
