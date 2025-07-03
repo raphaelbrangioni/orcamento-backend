@@ -33,12 +33,15 @@ public class CartaoCreditoService {
         return cartaoCreditoRepository.findByTenantId(tenantId);
     }
 
+    @Transactional
     public void excluirCartao(Long id) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         if (tenantId == null || tenantId.isBlank()) {
             throw new IllegalStateException("Usuário sem tenant vinculado. Não é possível excluir cartão de crédito.");
         }
-        cartaoCreditoRepository.deleteByIdAndTenantId(id, tenantId);
+        CartaoCredito cartao = cartaoCreditoRepository.findByIdAndTenantId(id, tenantId)
+            .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrado para o tenant atual: " + id));
+        cartaoCreditoRepository.delete(cartao);
     }
 
     @Transactional

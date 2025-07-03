@@ -32,7 +32,11 @@ public class LancamentoCartaoService {
 
     @Transactional
     public List<LancamentoCartao> cadastrarMultiplosLancamentos(List<LancamentoCartao> lancamentos) {
-        lancamentos.forEach(this::validarLancamento);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        lancamentos.forEach(l -> {
+            l.setTenantId(tenantId);
+            validarLancamento(l);
+        });
         return lancamentoCartaoRepository.saveAll(lancamentos);
     }
 

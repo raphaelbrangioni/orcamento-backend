@@ -3,6 +3,7 @@ package com.example.orcamento.service;
 import com.example.orcamento.model.Usuario;
 import com.example.orcamento.repository.UsuarioRepository;
 import com.example.orcamento.security.JwtUtil;
+import com.example.orcamento.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +20,8 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final JwtUtil jwtUtil;
-    private final PasswordEncoder passwordEncoder; // ✅ Agora é reconhecido como um Bean
+    private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public String authenticate(String username, String password) {
         // Buscar usuário no banco
@@ -49,7 +51,7 @@ public class UsuarioService {
         Usuario usuario = new Usuario();
         usuario.setUsername(username);
         usuario.setEmail(email);
-        usuario.setPassword(passwordEncoder.encode(senha)); // 🔐 Criptografa a senha
+        usuario.setPassword(passwordEncoder.encode(senha)); // Criptografa a senha
         usuario.setTenantId(tenantId);
 
         return usuarioRepository.save(usuario);
@@ -71,7 +73,59 @@ public class UsuarioService {
         usuario.setToken(token);
         usuario.setDataCadastro(LocalDateTime.now());
         usuario.setDataPrimeiroLogin(null);
-        return usuarioRepository.save(usuario);
+        Usuario salvo = usuarioRepository.save(usuario);
+        // Envia e-mail de boas-vindas com formatação HTML
+        String assunto = "Bem-vindo ao Meu Orçamento - Acesse sua nova conta";
+        String corpo = String.format(
+            "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+            "    <meta charset=\"UTF-8\">" +
+            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" +
+            "    <style>" +
+            "        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }" +
+            "        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }" +
+            "        .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }" +
+            "        .footer { margin-top: 20px; font-size: 12px; color: #666; text-align: center; }" +
+            "        .credentials { background-color: #fff; border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin: 20px 0; }" +
+            "        .highlight { font-weight: bold; color: #2563eb; }" +
+            "        .button { display: inline-block; background-color: #2563eb; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; margin-top: 15px; }" +
+            "    </style>" +
+            "</head>" +
+            "<body>" +
+            "    <div class=\"header\">" +
+            "        <h2>Bem-vindo ao Meu Orçamento!</h2>" +
+            "    </div>" +
+            "    <div class=\"content\">" +
+            "        <p>Olá <b>%s</b>,</p>" +
+            "        <p>Seu cadastro foi realizado com sucesso! Estamos felizes em tê-lo como usuário do nosso sistema de gestão financeira.</p>" +
+            "        <div class=\"credentials\">" +
+            "            <p><strong>Suas credenciais de acesso:</strong></p>" +
+            "            <p>Usuário: <span class=\"highlight\">%s</span></p>" +
+            "            <p>Senha inicial: <span class=\"highlight\">%s</span></p>" +
+            "            <p>Token de validação: <span class=\"highlight\">%s</span></p>" +
+            "        </div>" +
+            "        <p><strong>Próximos passos:</strong></p>" +
+            "        <ol>" +
+            "            <li>Acesse o sistema em <a href=\"http://ec2-54-157-183-228.compute-1.amazonaws.com:8080/orcamento/login\">meuorcamento.com.br</a></li>" +
+            "            <li>Faça login com seu usuário e senha</li>" +
+            "            <li>Quando solicitado, informe o token de validação acima</li>" +
+            "            <li>Defina uma nova senha segura</li>" +
+            "        </ol>" +
+            "        <p>Por motivos de segurança, este token é válido por 24 horas. Após este período, será necessário solicitar um novo token.</p>" +
+            "        <p>Caso tenha qualquer dúvida, responda a este email ou entre em contato com o suporte.</p>" +
+            "    </div>" +
+            "    <div class=\"footer\">" +
+            "        <p>Atenciosamente,<br>Equipe Meu Orçamento</p>" +
+            "        <p> %d Meu Orçamento - Todos os direitos reservados</p>" +
+            "        <p><small>Este é um email automático, por favor não responda.</small></p>" +
+            "    </div>" +
+            "</body>" +
+            "</html>",
+            nome, username, password, token, java.time.Year.now().getValue()
+        );
+        emailService.enviarEmail(email, assunto, corpo);
+        return salvo;
     }
 
     public List<Usuario> listarUsuarios() {
