@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "usuario")
@@ -50,6 +51,10 @@ public class Usuario {
 
     @Column(length = 120, nullable = false)
     private String nome;
+
+    @OneToMany(mappedBy = "usuario", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    private java.util.List<AcessoUsuario> acessos;
 
     @PrePersist
     public void prePersist() {

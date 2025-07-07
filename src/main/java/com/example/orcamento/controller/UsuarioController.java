@@ -4,8 +4,11 @@ import com.example.orcamento.dto.LoginRequest;
 import com.example.orcamento.dto.LoginResponse;
 import com.example.orcamento.dto.TrocaSenhaRequest;
 import com.example.orcamento.dto.UsuarioDTO;
+import com.example.orcamento.dto.UsuarioAcessosDTO;
 import com.example.orcamento.model.Usuario;
+import com.example.orcamento.service.AcessoUsuarioService;
 import com.example.orcamento.service.UsuarioService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,14 +30,21 @@ import java.util.stream.Collectors;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final AcessoUsuarioService acessoUsuarioService;
 
     // 🔹 Login de usuário
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
-        System.out.println(loginRequest);
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         String token = usuarioService.authenticate(loginRequest.getUsername(), loginRequest.getPassword());
-        System.out.println("Token: " + token);
-        return ResponseEntity.ok(new LoginResponse("Login bem-sucedido!", token));
+        Usuario usuario = usuarioService.obterUsuarioPorUsername(loginRequest.getUsername());
+        String ipOrigem = request.getRemoteAddr();
+        String tenantId = usuario.getTenantId();
+        var acesso = acessoUsuarioService.registrarLogin(usuario, ipOrigem, tenantId);
+        // Retorne o token e o id do acesso para controle de logout
+        return ResponseEntity.ok(Map.of(
+            "token", token,
+            "acessoId", acesso.getId()
+        ));
     }
 
     // ✅ Novo endpoint para registrar usuários
@@ -206,8 +217,8 @@ public class UsuarioController {
         List<Usuario> usuarios = usuarioService.listarUsuarios();
         List<UsuarioDTO> usuariosDTO = new ArrayList<>();
         for (Usuario u : usuarios) {
-            log.info("Usuario do banco: id={}, username={}, ativo={}, admin={}, email={}, tenantId={}, dataCadastro={}, dataPrimeiroLogin={}",
-                u.getId(), u.getUsername(), u.isAtivo(), u.isAdmin(), u.getEmail(), u.getTenantId(), u.getDataCadastro(), u.getDataPrimeiroLogin());
+//            log.info("Usuario do banco: id={}, username={}, ativo={}, admin={}, email={}, tenantId={}, dataCadastro={}, dataPrimeiroLogin={}",
+//                u.getId(), u.getUsername(), u.isAtivo(), u.isAdmin(), u.getEmail(), u.getTenantId(), u.getDataCadastro(), u.getDataPrimeiroLogin());
             UsuarioDTO dto = new UsuarioDTO(
                 u.getId(),
                 u.getUsername(),
@@ -226,5 +237,21 @@ public class UsuarioController {
             usuariosDTO.add(dto);
         }
         return ResponseEntity.ok(usuariosDTO);
+    }
+
+    // Endpoint para consultar acessos dos usuários
+    @GetMapping("/acessos-usuarios")
+    public ResponseEntity<List<UsuarioAcessosDTO>> listarAcessosUsuarios() {
+        List<Usuario> usuarios = usuarioService.listarUsuarios();
+        List<UsuarioAcessosDTO> acessos = acessoUsuarioService.listarAcessosPorUsuario(usuarios);
+        return ResponseEntity.ok(acessos);
+    }
+
+    // Endpoint para logout
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestParam Long acessoId) {
+        log.info("Logout solicitado para o acessoId: {}", acessoId);
+        acessoUsuarioService.registrarLogout(acessoId);
+        return ResponseEntity.ok(Map.of("message", "Logout registrado com sucesso"));
     }
 }

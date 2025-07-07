@@ -107,7 +107,7 @@ public class UsuarioService {
             "        </div>" +
             "        <p><strong>Próximos passos:</strong></p>" +
             "        <ol>" +
-            "            <li>Acesse o sistema em <a href=\"http://ec2-54-157-183-228.compute-1.amazonaws.com:8080/orcamento/login\">meuorcamento.com.br</a></li>" +
+            "            <li>Acesse o sistema em <a href=\"meuorcamentoapp.com.br\">meuorcamentoapp.com.br</a></li>" +
             "            <li>Faça login com seu usuário e senha</li>" +
             "            <li>Quando solicitado, informe o token de validação acima</li>" +
             "            <li>Defina uma nova senha segura</li>" +
