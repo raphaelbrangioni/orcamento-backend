@@ -6,7 +6,10 @@ import com.example.orcamento.dto.TrocaSenhaRequest;
 import com.example.orcamento.dto.UsuarioDTO;
 import com.example.orcamento.dto.UsuarioAcessosDTO;
 import com.example.orcamento.model.Usuario;
+import com.example.orcamento.model.RefreshToken;
+import com.example.orcamento.security.JwtUtil;
 import com.example.orcamento.service.AcessoUsuarioService;
+import com.example.orcamento.service.RefreshTokenService;
 import com.example.orcamento.service.UsuarioService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -31,19 +34,31 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final AcessoUsuarioService acessoUsuarioService;
+    private final RefreshTokenService refreshTokenService;
+    private final JwtUtil jwtUtil;
 
     // 🔹 Login de usuário
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         String token = usuarioService.authenticate(loginRequest.getUsername(), loginRequest.getPassword());
         Usuario usuario = usuarioService.obterUsuarioPorUsername(loginRequest.getUsername());
-        String ipOrigem = request.getRemoteAddr();
+        // Captura o IP real do usuário
+        String ipOrigem = request.getHeader("X-Forwarded-For");
+        if (ipOrigem == null || ipOrigem.isBlank()) {
+            ipOrigem = loginRequest.getIpAddress(); // pega do frontend se enviado
+        }
+        if (ipOrigem == null || ipOrigem.isBlank()) {
+            ipOrigem = request.getRemoteAddr(); // fallback
+        } else {
+            ipOrigem = ipOrigem.split(",")[0].trim(); // se vier em cadeia, pega o primeiro
+        }
         String tenantId = usuario.getTenantId();
         var acesso = acessoUsuarioService.registrarLogin(usuario, ipOrigem, tenantId);
-        // Retorne o token e o id do acesso para controle de logout
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(usuario);
         return ResponseEntity.ok(Map.of(
             "token", token,
-            "acessoId", acesso.getId()
+            "acessoId", acesso.getId(),
+            "refreshToken", refreshToken.getToken()
         ));
     }
 
@@ -132,7 +147,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioDTO> obterUsuarioPorUsername(@PathVariable String username) {
         Usuario usuario = usuarioService.obterUsuarioPorUsername(username);
 
-        log.info("Usuário encontrado: {}", usuario);
+        //log.info("Usuário encontrado: {}", usuario);
         if (usuario == null) {
             return ResponseEntity.notFound().build();
         }
@@ -253,5 +268,18 @@ public class UsuarioController {
         log.info("Logout solicitado para o acessoId: {}", acessoId);
         acessoUsuarioService.registrarLogout(acessoId);
         return ResponseEntity.ok(Map.of("message", "Logout registrado com sucesso"));
+    }
+
+    // Endpoint para renovar access token via refresh token
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody Map<String, String> body) {
+        String refreshTokenStr = body.get("refreshToken");
+        var refreshOpt = refreshTokenService.findByToken(refreshTokenStr);
+        if (refreshOpt.isEmpty() || refreshTokenService.isExpired(refreshOpt.get())) {
+            return ResponseEntity.status(401).body(Map.of("error", "Refresh token inválido ou expirado"));
+        }
+        var usuario = refreshOpt.get().getUsuario();
+        String newAccessToken = jwtUtil.generateToken(usuario.getUsername(), usuario.getTenantId());
+        return ResponseEntity.ok(Map.of("token", newAccessToken));
     }
 }
