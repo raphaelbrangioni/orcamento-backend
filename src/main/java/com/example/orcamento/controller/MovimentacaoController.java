@@ -25,11 +25,8 @@ public class MovimentacaoController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
             @RequestParam(required = false) Long contaCorrenteId) {
         log.info("Requisição GET em /api/v1/movimentacoes, listarMovimentacoes");
-        log.info("dataInicio: {}", dataInicio);
-        log.info("dataFim: {}", dataFim);
+        log.info("dataInicio: {}, dataFim: {}, contaCorrenteId: {}", dataInicio, dataFim, contaCorrenteId);
 
-        if (dataInicio == null) dataInicio = LocalDate.now().minusMonths(1); // Último mês por padrão
-        if (dataFim == null) dataFim = LocalDate.now(); // Até hoje por padrão
         List<Movimentacao> movimentacoes = movimentacaoService.listarMovimentacoesPorConta(contaCorrenteId, dataInicio, dataFim);
         return ResponseEntity.ok(movimentacoes);
     }

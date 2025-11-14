@@ -1,6 +1,14 @@
 package com.example.orcamento.controller;
 
+import com.example.orcamento.dto.TipoDespesaRequestDTO;
+import com.example.orcamento.dto.TipoDespesaResponseDTO;
+import com.example.orcamento.dto.TipoDespesaCategoriaResponseDTO;
+import com.example.orcamento.dto.TipoDespesaSubcategoriaResponseDTO;
+import com.example.orcamento.dto.TipoDespesaCategoriaRequestDTO;
+import com.example.orcamento.model.CategoriaDespesa;
+import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.model.TipoDespesa;
+import com.example.orcamento.security.TenantContext;
 import com.example.orcamento.service.TipoDespesaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/tipos-despesa")
+@RequestMapping("/api/v1/tipos-despesa_XX")
 @RequiredArgsConstructor
 //@CrossOrigin(origins = "http://localhost:8080")
 @CrossOrigin(origins = "http://localhost")
@@ -21,28 +29,19 @@ public class TipoDespesaController {
     private final TipoDespesaService tipoDespesaService;
 
     @GetMapping
-    public ResponseEntity<List<TipoDespesa>> listarTipos() {
-        log.info("Requisição GET em /api/v1/tipos-despesa, listarTipos");
-        return ResponseEntity.ok(tipoDespesaService.listarTipos());
+    public ResponseEntity<List<TipoDespesaCategoriaResponseDTO>> listarCategoriasComSubcategorias() {
+        log.info("Requisição GET em /api/v1/tipos-despesa, listarCategoriasComSubcategorias");
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<TipoDespesaCategoriaResponseDTO> resposta = tipoDespesaService.listarCategoriasComSubcategoriasPorTenant(tenantId);
+        return ResponseEntity.ok(resposta);
     }
 
-//    @PostMapping
-//    public ResponseEntity<TipoDespesa> cadastrarTipo(@RequestBody TipoDespesa tipo) {
-//
-//        return ResponseEntity.ok(tipoDespesaService.cadastrarTipo(tipo));
-//    }
-
     @PostMapping
-    public ResponseEntity<TipoDespesa> cadastrarTipo(@RequestBody TipoDespesa tipo) {
-        log.info("Requisição POST em /api/v1/tipos-despesa, cadastrarTipo");
-        log.info("Tipo Informado na requisição: {}", tipo.toString());
-
-        TipoDespesa salvo = tipoDespesaService.cadastrarTipo(tipo);
-
-        log.info("Tipo salvo: {}",salvo);
-        ResponseEntity<TipoDespesa> response = ResponseEntity.ok(salvo);
-       log.info("Retornando resposta: " + response.getStatusCode() + " - " + response.getBody());
-        return response;
+    public ResponseEntity<TipoDespesaCategoriaResponseDTO> criarCategoria(@Valid @RequestBody TipoDespesaCategoriaRequestDTO dto) {
+        log.info("Requisição POST em /api/v1/tipos-despesa, criarCategoria");
+        String tenantId = TenantContext.getTenantId();
+        TipoDespesaCategoriaResponseDTO resposta = tipoDespesaService.criarCategoriaComSubcategorias(dto, tenantId);
+        return ResponseEntity.ok(resposta);
     }
 
     @DeleteMapping("/{id}")
@@ -53,11 +52,10 @@ public class TipoDespesaController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TipoDespesa> atualizarTipoDespesa(
+    public ResponseEntity<TipoDespesaResponseDTO> atualizarTipoDespesa(
             @PathVariable Long id,
-            @RequestBody @Valid TipoDespesa tipoDespesaAtualizado) {
-        TipoDespesa tipoDespesa = tipoDespesaService.atualizarTipoDespesa(id, tipoDespesaAtualizado);
-        return ResponseEntity.ok(tipoDespesa); // Retorna o tipo de despesa atualizado
+            @RequestBody @Valid TipoDespesaRequestDTO dto) {
+        TipoDespesa atualizado = tipoDespesaService.atualizarTipoDespesaDTO(id, dto);
+        return ResponseEntity.ok(tipoDespesaService.toResponseDTO(atualizado));
     }
 }
-

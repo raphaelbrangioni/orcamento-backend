@@ -28,9 +28,13 @@ public class DespesaParcelada {
     @Enumerated(EnumType.STRING)
     private Month mesPrimeiraParcela;
 
+    // @ManyToOne
+    // @JoinColumn(name = "tipo_despesa_id")
+    // private TipoDespesa tipoDespesa;
+
     @ManyToOne
-    @JoinColumn(name = "tipo_despesa_id")
-    private TipoDespesa tipoDespesa;
+    @JoinColumn(name = "subcategoria_id")
+    private SubcategoriaDespesa subcategoria;
 
     private String proprietario;
     private String detalhes;

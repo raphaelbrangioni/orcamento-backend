@@ -13,10 +13,10 @@ public interface DespesaParceladaRepository extends JpaRepository<DespesaParcela
 
     @Query("SELECT dp FROM DespesaParcelada dp WHERE dp.tenantId = :tenantId AND " +
             "(:descricao IS NULL OR LOWER(dp.descricao) LIKE LOWER(CONCAT('%', :descricao, '%'))) AND " +
-            "(:tipoDespesaId IS NULL OR dp.tipoDespesa.id = :tipoDespesaId)")
+            "(:subcategoriaId IS NULL OR dp.subcategoria.id = :subcategoriaId)")
     Page<DespesaParcelada> findByFiltros(
             @Param("descricao") String descricao,
-            @Param("tipoDespesaId") Long tipoDespesaId,
+            @Param("subcategoriaId") Long subcategoriaId,
             @Param("tenantId") String tenantId,
             Pageable pageable);
 

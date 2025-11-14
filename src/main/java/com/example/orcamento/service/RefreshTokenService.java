@@ -35,6 +35,10 @@ public class RefreshTokenService {
         return token.getExpiryDate().isBefore(LocalDateTime.now());
     }
 
+    public void deleteByToken(String token) {
+        refreshTokenRepository.deleteByToken(token);
+    }
+
     public void deleteByUsuarioId(Long usuarioId) {
         refreshTokenRepository.deleteByUsuarioId(usuarioId);
     }

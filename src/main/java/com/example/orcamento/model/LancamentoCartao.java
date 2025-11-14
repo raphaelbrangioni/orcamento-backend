@@ -1,6 +1,8 @@
-// src/main/java/com/example/orcamento/model/LancamentoCartao.java
 package com.example.orcamento.model;
 
+import com.example.orcamento.config.json.CustomLocalDateTimeDeserializer;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -44,21 +46,17 @@ public class LancamentoCartao {
     @JoinColumn(name = "cartao_credito_id", nullable = false)
     private CartaoCredito cartaoCredito;
 
-    // Novo campo
-    @ManyToOne
-    @JoinColumn(name = "tipo_despesa_id")
-    private TipoDespesa tipoDespesa;
-
     // Novo campo Proprietário
     @Column(nullable = false)
     private String proprietario; // "Próprio" ou "Terceiros"
 
     // Novo campo Data de Registro
     @Column(name = "data_registro", nullable = false, updatable = false)
+    @JsonDeserialize(using = CustomLocalDateTimeDeserializer.class)
     private LocalDateTime dataRegistro;
 
     // Multi-tenant: identificação do tenant (CPF do usuário)
-    @Column(nullable = false)
+    @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 
     @ManyToOne
@@ -76,6 +74,9 @@ public class LancamentoCartao {
         this.dataRegistro = LocalDateTime.now();
     }
 
+    @ManyToOne
+    @JoinColumn(name = "subcategoria_id")
+    private SubcategoriaDespesa subcategoria;
 
     // Em LancamentoCartao.java
     @Enumerated(EnumType.STRING)
@@ -85,6 +86,4 @@ public class LancamentoCartao {
     @Enumerated(EnumType.STRING)
     @Column(name = "variabilidade")
     private TipoVariabilidadeDespesa variabilidade;
-
-
 }

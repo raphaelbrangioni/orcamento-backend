@@ -275,11 +275,27 @@ public class UsuarioController {
     public ResponseEntity<?> refresh(@RequestBody Map<String, String> body) {
         String refreshTokenStr = body.get("refreshToken");
         var refreshOpt = refreshTokenService.findByToken(refreshTokenStr);
+
         if (refreshOpt.isEmpty() || refreshTokenService.isExpired(refreshOpt.get())) {
             return ResponseEntity.status(401).body(Map.of("error", "Refresh token inválido ou expirado"));
         }
+
+        // Token válido, vamos rotacioná-lo
         var usuario = refreshOpt.get().getUsuario();
+
+        // 1. Excluir o token antigo
+        refreshTokenService.deleteByToken(refreshTokenStr);
+
+        // 2. Gerar um novo access token
         String newAccessToken = jwtUtil.generateToken(usuario.getUsername(), usuario.getTenantId());
-        return ResponseEntity.ok(Map.of("token", newAccessToken));
+
+        // 3. Gerar um novo refresh token
+        RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(usuario);
+
+        // 4. Retornar ambos os novos tokens
+        return ResponseEntity.ok(Map.of(
+                "token", newAccessToken,
+                "refreshToken", newRefreshToken.getToken()
+        ));
     }
 }

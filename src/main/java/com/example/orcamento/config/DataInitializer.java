@@ -20,8 +20,12 @@ public class DataInitializer {
             if (usuarioRepository.count() == 0) {
                 Usuario admin = new Usuario();
                 admin.setUsername("admin");
-                admin.setEmail("admin@email.com");
+                admin.setEmail("raphaelbrangioni@gmail.com");
+                admin.setNome("Raphael Brangioni");
+                admin.setTenantId("06660607625");
                 // Senha: admin123 (BCrypt hash)
+                admin.setAtivo(true);
+                admin.setAdmin(true);
                 admin.setPassword("$2a$10$KElqWlIeyRvdQOf1G9tLiOAS5u/z8fRDmJ5ysFi0a2ToxWGoHEbeW");
                 usuarioRepository.save(admin);
                 log.info("Usuário admin criado automaticamente no banco de dados.");

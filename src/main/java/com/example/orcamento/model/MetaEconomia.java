@@ -1,5 +1,6 @@
 package com.example.orcamento.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -18,12 +19,14 @@ public class MetaEconomia {
     private double valorEconomizado;
 
     @Column(nullable = true)
-    private Double fracaoBitcoin; // Novo campo para armazenar a fração de BTC
-    // Getters e setters
+    private Double fracaoCripto; // Novo campo para armazenar a fração de cripto
+    
+    @Column(nullable = true, length = 10)
+    private String simboloCripto; // Símbolo da criptomoeda (BTC, ETH, XRP, etc)
 
-    @Enumerated(EnumType.STRING) // Mapeia o enum como texto no banco de dados
-    @Column(name = "tipo_investimento", nullable = false)
-    private TipoInvestimento tipoInvestimento;
+    @ManyToOne
+    @JoinColumn(name = "subcategoria_id")
+    private SubcategoriaDespesa tipoInvestimento;
 
     @Column(nullable = false)
     private String tenantId;

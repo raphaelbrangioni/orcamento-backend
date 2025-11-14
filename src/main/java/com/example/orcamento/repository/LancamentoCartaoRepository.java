@@ -16,14 +16,14 @@ public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCart
 
     List<LancamentoCartao> findByMesAnoFaturaAndTenantId(String mesAnoFatura, String tenantId);
 
-    @Query("SELECT COALESCE(t.nome, 'Sem Tipo'), SUM(l.valorTotal) " +
+    @Query("SELECT COALESCE(s.nome, 'Sem Subcategoria'), SUM(l.valorTotal) " +
             "FROM LancamentoCartao l " +
-            "LEFT JOIN l.tipoDespesa t " +
+            "LEFT JOIN l.subcategoria s " +
             "WHERE l.mesAnoFatura = :mesAnoFatura " +
             "AND l.tenantId = :tenantId " +
             "AND (:cartaoId IS NULL OR l.cartaoCredito.id = :cartaoId) " +
             "AND (:proprietario IS NULL OR l.proprietario = :proprietario) " +
-            "GROUP BY t.nome")
+            "GROUP BY s.nome")
     List<Object[]> findGastosPorTipoDespesa(
             @Param("mesAnoFatura") String mesAnoFatura,
             @Param("cartaoId") Long cartaoId,
@@ -47,21 +47,22 @@ public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCart
 
     List<LancamentoCartao> findByCartaoCreditoIdAndDataCompraBetweenAndTenantId(Long cartaoId, LocalDate dataInicio, LocalDate dataFim, String tenantId);
 
-    List<LancamentoCartao> findByTipoDespesaIdAndTenantId(Long tipoDespesaId, String tenantId);
+    // REMOVIDO: Método legado baseado em tipoDespesa, não compatível com o novo modelo
+    // List<LancamentoCartao> findByTipoDespesaIdAndTenantId(Long tipoDespesaId, String tenantId);
 
     // Buscar lançamentos recorrentes (mesma descrição em diferentes meses)
     @Query("SELECT l FROM LancamentoCartao l WHERE l.descricao = :descricao AND l.tenantId = :tenantId ORDER BY l.dataCompra")
     List<LancamentoCartao> findByDescricaoOrderByDataCompra(@Param("descricao") String descricao, @Param("tenantId") String tenantId);
 
     // Buscar gastos por categoria para análise de tendências
-    @Query("SELECT COALESCE(t.nome, 'Não categorizado') as categoria, " +
+    @Query("SELECT COALESCE(s.nome, 'Não categorizado') as categoria, " +
             "SUM(l.valorTotal) as total, " +
             "FUNCTION('YEAR', l.dataCompra) as ano, " +
             "FUNCTION('MONTH', l.dataCompra) as mes " +
             "FROM LancamentoCartao l " +
-            "LEFT JOIN l.tipoDespesa t " +
+            "LEFT JOIN l.subcategoria s " +
             "WHERE l.dataCompra >= :dataInicio AND l.tenantId = :tenantId " +
-            "GROUP BY categoria, ano, mes " +
+            "GROUP BY s.nome, ano, mes " +
             "ORDER BY categoria, ano, mes")
     List<Object[]> findGastosPorCategoriaEMes(@Param("dataInicio") LocalDate dataInicio, @Param("tenantId") String tenantId);
 
@@ -86,20 +87,22 @@ public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCart
                               @Param("mesAnoFatura") String mesAnoFatura,
                               @Param("tenantId") String tenantId);
 
+    @Query("SELECT SUM(l.valorTotal) " +
+            "FROM LancamentoCartao l " +
+            "WHERE l.cartaoCredito.id = :cartaoId " +
+            "AND l.mesAnoFatura = :mesAnoFatura " +
+            "AND l.tenantId = :tenantId " +
+            "AND l.proprietario = 'Terceiros'")
+    BigDecimal getFaturaDoMesTerceiros(@Param("cartaoId") Long cartaoId,
+                              @Param("mesAnoFatura") String mesAnoFatura,
+                              @Param("tenantId") String tenantId);
+
     @Query("SELECT lc FROM LancamentoCartao lc WHERE (:cartaoId IS NULL OR lc.cartaoCredito.id = :cartaoId) AND (:mesAnoFatura IS NULL OR lc.mesAnoFatura = :mesAnoFatura) AND lc.tenantId = :tenantId")
     List<LancamentoCartao> findByCartaoAndMesAno(@Param("cartaoId") Long cartaoId, @Param("mesAnoFatura") String mesAnoFatura, @Param("tenantId") String tenantId);
 
-    // Novo método para buscar lançamentos com proprietario = "Terceiros"
     List<LancamentoCartao> findByProprietarioAndTenantId(String proprietario, String tenantId);
 
-    // Novo método para buscar por proprietario e mesAnoFatura (opcional)
-    @Query("SELECT l FROM LancamentoCartao l WHERE l.proprietario = :proprietario " +
-            "AND (:mesAnoFatura IS NULL OR l.mesAnoFatura = :mesAnoFatura) " +
-            "AND l.tenantId = :tenantId")
-    List<LancamentoCartao> findByProprietarioAndMesAnoFatura(
-            @Param("proprietario") String proprietario,
-            @Param("mesAnoFatura") String mesAnoFatura,
-            @Param("tenantId") String tenantId);
+    List<LancamentoCartao> findByProprietarioAndMesAnoFaturaAndTenantId(String proprietario, String mesAnoFatura, String tenantId);
 
     List<LancamentoCartao> findByTenantId(String tenantId);
 

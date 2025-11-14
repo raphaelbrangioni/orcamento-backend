@@ -1,5 +1,7 @@
 package com.example.orcamento.model;
 
+import com.example.orcamento.model.converter.ReceitaTipoConverter;
+import com.example.orcamento.model.enums.ReceitaTipo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -32,7 +34,8 @@ public class Receita {
     private LocalDate dataRecebimento;
 
     @Column(nullable = false)
-    private String tipo; // Ex.: "Salário", "Vale-Alimentação", "Outros"
+    @Convert(converter = ReceitaTipoConverter.class)
+    private ReceitaTipo tipo; // Agora como ENUM
 
     @Column(name = "is_prevista", nullable = false)
     @JsonProperty("isPrevista") // Garante que o JSON "isPrevista" mapeie corretamente

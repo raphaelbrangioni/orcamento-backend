@@ -23,8 +23,8 @@ public class TransacaoFinanceiraDTO {
     private String descricao;
     private BigDecimal valor;
     private String detalhes;
-    private Long tipoDespesaId;
-    private String tipoDespesaNome;
+    private CategoriaDTO categoria;
+    private SubcategoriaDTO subcategoria;
     private TipoClassificacaoDespesa classificacao;
     private TipoVariabilidadeDespesa variabilidade;
     private Integer parcela;
@@ -38,8 +38,12 @@ public class TransacaoFinanceiraDTO {
         this.descricao = lancamento.getDescricao();
         this.valor = lancamento.getValorTotal();
         this.detalhes = lancamento.getDetalhes();
-        this.tipoDespesaId = lancamento.getTipoDespesa() != null ? lancamento.getTipoDespesa().getId() : null;
-        this.tipoDespesaNome = lancamento.getTipoDespesa() != null ? lancamento.getTipoDespesa().getNome() : null;
+        if (lancamento.getSubcategoria() != null) {
+            this.subcategoria = new SubcategoriaDTO(lancamento.getSubcategoria().getId(), lancamento.getSubcategoria().getNome());
+            if (lancamento.getSubcategoria().getCategoria() != null) {
+                this.categoria = new CategoriaDTO(lancamento.getSubcategoria().getCategoria().getId(), lancamento.getSubcategoria().getCategoria().getNome());
+            }
+        }
         this.classificacao = lancamento.getClassificacao();
         this.variabilidade = lancamento.getVariabilidade();
         this.parcela = lancamento.getParcelaAtual();
@@ -54,8 +58,12 @@ public class TransacaoFinanceiraDTO {
         this.descricao = despesa.getNome();
         this.valor = despesa.getValorPrevisto();
         this.detalhes = despesa.getDetalhes();
-        this.tipoDespesaId = despesa.getTipo() != null ? despesa.getTipo().getId() : null;
-        this.tipoDespesaNome = despesa.getTipo() != null ? despesa.getTipo().getNome() : null;
+        if (despesa.getSubcategoria() != null) {
+            this.subcategoria = new SubcategoriaDTO(despesa.getSubcategoria().getId(), despesa.getSubcategoria().getNome());
+            if (despesa.getSubcategoria().getCategoria() != null) {
+                this.categoria = new CategoriaDTO(despesa.getSubcategoria().getCategoria().getId(), despesa.getSubcategoria().getCategoria().getNome());
+            }
+        }
         this.classificacao = despesa.getClassificacao();
         this.variabilidade = despesa.getVariabilidade();
         this.parcela = despesa.getParcela();

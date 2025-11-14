@@ -1,10 +1,12 @@
 package com.example.orcamento.security;
 
+import com.example.orcamento.logging.TenantLoggingFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,7 +28,8 @@ import java.util.Arrays;
 @Slf4j
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final @Lazy JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final TenantLoggingFilter tenantLoggingFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -39,12 +42,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/tipos-despesa/**").authenticated()
+                        .requestMatchers("/api/v1/despesas/anexos/**").permitAll()
                         .requestMatchers("/api/v1/despesas/**").authenticated()
                         .requestMatchers("/api/v1/cartoes-credito/**").authenticated()
                         .requestMatchers("/api/v1/lancamentos-cartao/**").authenticated()
                         .requestMatchers("/api/v1/lancamentos-cartao/{id}/pago-por-terceiro/**").authenticated()
                         .requestMatchers("/api/v1/receitas").authenticated()
                         .requestMatchers("/api/v1/receitas/**").authenticated()
+                        .requestMatchers("/api/v1/receitas/por-mes-e-tipo/{ano}/**").authenticated()
                         .requestMatchers("/api/v1/receitas/{id}/efetivar").authenticated()
                         .requestMatchers("/api/v1/relatorios").authenticated()
                         .requestMatchers("/api/v1/relatorios/**").authenticated()
@@ -59,7 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/despesas/analise/**").authenticated()
                         .requestMatchers("/api/v1/cartoes/analise/**").authenticated()
                         .requestMatchers("/api/v1/compras/**").authenticated()
-                        .requestMatchers("api/v1/despesas/ano/**").authenticated()
+                        .requestMatchers("/api/v1/despesas/ano/**").authenticated()
                         .requestMatchers("/api/v1/despesas-parceladas/**").authenticated()
                         .requestMatchers("/api/v1/transacoes/**").authenticated()
                         .requestMatchers("/api/v1/transacoes/filtrar-dinamico").authenticated()
@@ -68,11 +73,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/api/v1/auth/trocar-senha").authenticated()
                         .requestMatchers("/api/v1/auth/all-users").authenticated()
                         .requestMatchers("/api/v1/auth/acessos-usuarios").authenticated()
+                        .requestMatchers("/api/v1/tipos-despesa/{categoriaId}/subcategorias").authenticated()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/webjars/**", "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
+                        .requestMatchers("/api/v1/horas-trabalhadas").authenticated()
+                        .requestMatchers("/api/v1/horas-trabalhadas/**").authenticated()
                         .anyRequest().denyAll()
 
                 )
+                .addFilterBefore(tenantLoggingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, authEx) -> {

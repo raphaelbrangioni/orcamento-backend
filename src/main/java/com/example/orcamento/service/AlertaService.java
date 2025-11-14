@@ -54,10 +54,11 @@ public class AlertaService {
         // Agrupa por categoriaId
         Map<Long, Double> gastosPorCategoria = new HashMap<>();
         for (TransacaoFinanceiraDTO t : transacoes) {
-            Long categoriaId = t.getTipoDespesaId();
-            if (categoriaId == null) continue;
-            double valor = t.getValor() != null ? t.getValor().doubleValue() : 0.0;
-            gastosPorCategoria.put(categoriaId, gastosPorCategoria.getOrDefault(categoriaId, 0.0) + valor);
+            if (t.getCategoria() != null && t.getCategoria().getId() != null) {
+                Long categoriaId = t.getCategoria().getId();
+                double valor = t.getValor() != null ? t.getValor().doubleValue() : 0.0;
+                gastosPorCategoria.put(categoriaId, gastosPorCategoria.getOrDefault(categoriaId, 0.0) + valor);
+            }
         }
         log.info("Gastos por categoria (por id) via transacaoFinanceiraService: {}", gastosPorCategoria);
 

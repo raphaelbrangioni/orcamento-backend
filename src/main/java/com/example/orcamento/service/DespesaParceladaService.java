@@ -4,6 +4,7 @@ import com.example.orcamento.dto.DespesaParceladaDTO;
 import com.example.orcamento.model.ContaCorrente;
 import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.DespesaParcelada;
+import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.model.TipoDespesa;
 import com.example.orcamento.repository.ContaCorrenteRepository;
 import com.example.orcamento.repository.DespesaParceladaRepository;
@@ -33,21 +34,20 @@ import java.util.List;
 public class DespesaParceladaService {
 
     private final DespesaParceladaRepository despesaParceladaRepository;
-    private final TipoDespesaRepository tipoDespesaRepository;
     private final DespesaService despesaService;
 
     /**
      * Lista despesas parceladas com base nos filtros informados.
      *
      * @param descricao      Descrição da despesa parcelada.
-     * @param tipoDespesaId  ID do tipo de despesa.
+     * @param subcategoriaId ID da subcategoria da despesa.
      * @param pageable       Configurações de paginação.
      * @return Página de despesas parceladas.
      */
     public Page<DespesaParcelada> listarDespesasParceladas(
-            String descricao, Long tipoDespesaId, Pageable pageable) {
+            String descricao, Long subcategoriaId, Pageable pageable) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        return despesaParceladaRepository.findByFiltros(descricao, tipoDespesaId, tenantId, pageable);
+        return despesaParceladaRepository.findByFiltros(descricao, subcategoriaId, tenantId, pageable);
     }
 
     /**
@@ -58,9 +58,11 @@ public class DespesaParceladaService {
      */
     @Transactional
     public DespesaParcelada salvarDespesaParcelada(DespesaParceladaDTO dto) {
-        // Buscar tipo de despesa
-        TipoDespesa tipoDespesa = tipoDespesaRepository.findById(dto.getTipoDespesaId())
-                .orElseThrow(() -> new EntityNotFoundException("Tipo de despesa não encontrado"));
+        // Buscar subcategoria da despesa
+        SubcategoriaDespesa subcategoria = null;
+        if (dto.getSubcategoriaId() != null) {
+            subcategoria = despesaService.buscarSubcategoriaPorId(dto.getSubcategoriaId());
+        }
 
         // Criar e salvar a despesa parcelada
         DespesaParcelada despesaParcelada = new DespesaParcelada();
@@ -69,7 +71,7 @@ public class DespesaParceladaService {
         despesaParcelada.setNumeroParcelas(dto.getNumeroParcelas());
         despesaParcelada.setDataInicial(dto.getDataInicial());
         despesaParcelada.setMesPrimeiraParcela(dto.getMesPrimeiraParcela());
-        despesaParcelada.setTipoDespesa(tipoDespesa);
+        despesaParcelada.setSubcategoria(subcategoria);
         despesaParcelada.setProprietario(dto.getProprietario());
         despesaParcelada.setDetalhes(dto.getDetalhes());
         despesaParcelada.setClassificacao(dto.getClassificacao());
@@ -99,9 +101,11 @@ public class DespesaParceladaService {
         if (despesaExistente == null) {
             throw new EntityNotFoundException("Despesa parcelada não encontrada ou não pertence ao tenant atual");
         }
-        // Buscar tipo de despesa
-        TipoDespesa tipoDespesa = tipoDespesaRepository.findById(dto.getTipoDespesaId())
-                .orElseThrow(() -> new EntityNotFoundException("Tipo de despesa não encontrado"));
+        // Buscar subcategoria da despesa
+        SubcategoriaDespesa subcategoria = null;
+        if (dto.getSubcategoriaId() != null) {
+            subcategoria = despesaService.buscarSubcategoriaPorId(dto.getSubcategoriaId());
+        }
 
         // Atualizar a despesa parcelada
         despesaExistente.setDescricao(dto.getDescricao());
@@ -109,7 +113,7 @@ public class DespesaParceladaService {
         despesaExistente.setNumeroParcelas(dto.getNumeroParcelas());
         despesaExistente.setDataInicial(dto.getDataInicial());
         despesaExistente.setMesPrimeiraParcela(dto.getMesPrimeiraParcela());
-        despesaExistente.setTipoDespesa(tipoDespesa);
+        despesaExistente.setSubcategoria(subcategoria);
         despesaExistente.setProprietario(dto.getProprietario());
         despesaExistente.setDetalhes(dto.getDetalhes());
         // Não altera tenantId!
@@ -176,7 +180,7 @@ public class DespesaParceladaService {
             }
 
             parcela.setDataVencimento(dataVencimento);
-            parcela.setTipo(despesaParcelada.getTipoDespesa());
+            parcela.setSubcategoria(despesaParcelada.getSubcategoria());
             parcela.setDetalhes(despesaParcelada.getDetalhes());
             parcela.setDespesaParceladaId(despesaParcelada.getId());
             parcela.setNome(despesaParcelada.getDescricao() + " - Parcela " + (i + 1) + "/" + numeroParcelas);

@@ -4,6 +4,7 @@ import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.MetaEconomia;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.service.MetaEconomiaService;
+import com.example.orcamento.dto.MetaEconomiaRequestDTO;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -32,37 +33,18 @@ public class MetaEconomiaController {
     }
 
     @PostMapping
-    public ResponseEntity<MetaEconomia> criarMeta(@RequestBody MetaEconomia meta) {
-        MetaEconomia novaMeta = service.salvarMeta(meta);
+    public ResponseEntity<MetaEconomia> criarMeta(@RequestBody MetaEconomiaRequestDTO metaDto) {
+        MetaEconomia novaMeta = service.salvarMeta(metaDto);
         return ResponseEntity.status(201).body(novaMeta);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MetaEconomia> atualizarMeta(@PathVariable Long id, @RequestBody MetaEconomia metaAtualizada) {
+    public ResponseEntity<MetaEconomia> atualizarMeta(@PathVariable Long id, @RequestBody MetaEconomiaRequestDTO metaDto) {
 
         log.info("Requisição PUT em /api/v1/metas-economia/{id}, atualizarMeta");
-        log.info("Meta a ser atualizada: {}", metaAtualizada);
+        log.info("Meta a ser atualizada: {}", metaDto);
 
-        // Busca a meta pelo id fornecido
-        MetaEconomia metaExistente = service.buscarPorId(id)
-                .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada!"));
-
-        // Atualiza os campos da meta existente com os valores recebidos
-        metaExistente.setNome(metaAtualizada.getNome());
-        metaExistente.setValor(metaAtualizada.getValor());
-        metaExistente.setDataFinal(metaAtualizada.getDataFinal());
-        metaExistente.setValorEconomizado(metaAtualizada.getValorEconomizado()); // Preserva valor economizado
-        metaExistente.setFracaoBitcoin(metaAtualizada.getFracaoBitcoin());
-
-        try {
-        // Agora atualiza o tipo de investimento (novo campo)
-        metaExistente.setTipoInvestimento(metaAtualizada.getTipoInvestimento());
-    } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException("Tipo de investimento inválido. Valores permitidos: POUPANCA, CDB, TESOURO, BTC, etc.");
-    }
-
-        // Salva a meta atualizada no banco de dados
-        MetaEconomia atualizada = service.salvarMeta(metaExistente);
+        MetaEconomia atualizada = service.atualizarMeta(id, metaDto);
 
         log.info("Meta atualizada: {}", atualizada);
 
@@ -93,13 +75,9 @@ public class MetaEconomiaController {
         return ResponseEntity.ok(response);
     }
 
-    // No MetaEconomiaService.java
-// No MetaEconomiaController.java
     @DeleteMapping("/{id}/com-despesas")
     public ResponseEntity<Void> excluirMetaComDespesas(@PathVariable Long id) {
         service.excluirMetaComDespesas(id);
         return ResponseEntity.noContent().build();
     }
-
-
 }

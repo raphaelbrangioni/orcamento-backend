@@ -42,13 +42,13 @@ public class RelatorioService {
     }
 
     // Novo método para despesas gerais
-    public List<Map<String, Object>> getDespesasPorTipo(LocalDate dataInicio, LocalDate dataFim, Long tipoDespesaId) {
+    public List<Map<String, Object>> getDespesasPorSubcategoria(LocalDate dataInicio, LocalDate dataFim, Long subcategoriaId) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        List<Object[]> resultados = despesaRepository.findDespesasPorTipo(tenantId, dataInicio, dataFim, tipoDespesaId);
+        List<Object[]> resultados = despesaRepository.findDespesasPorSubcategoria(tenantId, dataInicio, dataFim, subcategoriaId);
         return resultados.stream()
                 .map(result -> Map.of(
-                        "tipoDespesaId", result[0] != null ? result[0] : null,
-                        "tipoDespesaNome", result[1] != null ? result[1] : "Sem Tipo",
+                        "subcategoriaId", result[0] != null ? result[0] : null,
+                        "subcategoriaNome", result[1] != null ? result[1] : "Sem Subcategoria",
                         "valorPrevisto", result[2] != null ? result[2] : 0,
                         "valorPago", result[3] != null ? result[3] : 0
                 ))

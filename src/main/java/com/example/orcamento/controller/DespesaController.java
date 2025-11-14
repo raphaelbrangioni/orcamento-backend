@@ -1,18 +1,25 @@
 package com.example.orcamento.controller;
 
-import com.example.orcamento.dto.DespesaDTO;
+import com.example.orcamento.dto.*;
 import com.example.orcamento.dto.dashboard.DespesasMensaisDTO;
-import com.example.orcamento.model.Despesa;
-import com.example.orcamento.model.MetaEconomia;
+import com.example.orcamento.model.*;
+import com.example.orcamento.model.enums.FormaDePagamento;
 import com.example.orcamento.service.DespesaService;
+import com.example.orcamento.service.FileStorageService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,30 +32,32 @@ import java.util.stream.Collectors;
 public class DespesaController {
 
     private final DespesaService despesaService;
+    private final FileStorageService fileStorageService;
 
     @GetMapping
-    public ResponseEntity<List<Despesa>> listarDespesas(
+    public ResponseEntity<List<DespesaResponseDTO>> listarDespesas(
             @RequestParam(required = false) String dataMin,
             @RequestParam(required = false) String dataMax) {
         log.info("Requisição GET em /api/v1/despesas, dataMin: {}, dataMax: {}", dataMin, dataMax);
+        List<Despesa> despesas;
         if (dataMin != null && dataMax != null) {
             LocalDate inicio = LocalDate.parse(dataMin);
             LocalDate fim = LocalDate.parse(dataMax);
-            return ResponseEntity.ok(despesaService.listarDespesasPorPeriodo(inicio, fim));
+            despesas = despesaService.listarDespesasPorPeriodo(inicio, fim);
+        } else {
+            despesas = despesaService.listarDespesas();
         }
-        return ResponseEntity.ok(despesaService.listarDespesas());
+        List<DespesaResponseDTO> resposta = despesas.stream()
+                .map(this::toDespesaResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(resposta);
     }
 
-//    @GetMapping
-//    public ResponseEntity<List<Despesa>> listarDespesas() {
-//        log.info("Requisição GET em /api/v1/despesas, listarDespesas");
-//        return ResponseEntity.ok(despesaService.listarDespesas());
-//    }
-
     @PostMapping
-    public ResponseEntity<Despesa> cadastrarDespesa(@RequestBody Despesa despesa) {
+    public ResponseEntity<List<DespesaResponseDTO>> cadastrarDespesa(@RequestBody Despesa despesa) {
         log.info("Requisição POST em /api/v1/despesas, cadastrarDespesa");
-        return ResponseEntity.ok(despesaService.salvarDespesa(despesa));
+        Despesa salva = despesaService.salvarDespesa(despesa);
+        return ResponseEntity.ok(List.of(toDespesaResponseDTO(salva)));
     }
 
     @DeleteMapping("/{id}")
@@ -60,67 +69,83 @@ public class DespesaController {
     }
 
     @PutMapping("/{id}/pagar")
-    public ResponseEntity<DespesaDTO> pagarDespesa(@PathVariable Long id, @RequestBody PagamentoRequest pagamentoRequest) {
+    public ResponseEntity<DespesaResponseDTO> pagarDespesa(@PathVariable Long id, @RequestBody PagamentoRequest pagamentoRequest) {
         log.info("Requisição PUT em /api/v1/despesas/{id}/pagar, pagarDespesa");
         log.info("ID informado para pagamento: {}", id);
+        log.info("Pagamento Request: {}",pagamentoRequest.toString());
         Despesa despesa = despesaService.atualizarPagamento(
                 id,
                 pagamentoRequest.getValorPago(),
                 pagamentoRequest.getDataPagamento(),
                 pagamentoRequest.getContaCorrenteId(),
-                pagamentoRequest.getMetaEconomiaId()
+                pagamentoRequest.getMetaEconomiaId(),
+                pagamentoRequest.getFormaDePagamento()
         );
-        return ResponseEntity.ok(new DespesaDTO(despesa));
+        return ResponseEntity.ok(toDespesaResponseDTO(despesa));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<DespesaDTO> atualizarDespesa(@PathVariable Long id, @RequestBody Despesa despesaAtualizada) {
-        log.info("Requisição PUT em /api/v1/despesas/{id}, atualizarDespesa");
+    @PutMapping(value = "/{id}", consumes = { "multipart/form-data" })
+    public ResponseEntity<DespesaResponseDTO> atualizarDespesa(@PathVariable Long id,
+                                                               @RequestPart("despesa") Despesa despesaAtualizada,
+                                                               @RequestPart(value = "anexo", required = false) MultipartFile anexo) {
+        log.info("Requisição PUT em /api/v1/despesas/{id}, atualizarDespesa com anexo");
+        log.info("ID informado para atualização: {}", id);
+        Despesa despesa = despesaService.atualizarDespesa(id, despesaAtualizada, anexo);
+        return ResponseEntity.ok(toDespesaResponseDTO(despesa));
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DespesaResponseDTO> atualizarDespesaSemAnexo(@PathVariable Long id,
+                                                                       @RequestBody Despesa despesaAtualizada) {
+        log.info("Requisição PUT em /api/v1/despesas/{id}, atualizarDespesa sem anexo (JSON)");
         log.info("ID informado para atualização: {}", id);
         Despesa despesa = despesaService.atualizarDespesa(id, despesaAtualizada);
-        return ResponseEntity.ok(new DespesaDTO(despesa));
+        return ResponseEntity.ok(toDespesaResponseDTO(despesa));
+    }
+
+    @GetMapping("/anexos/{fileName:.+}")
+    public ResponseEntity<Resource> baixarAnexo(@PathVariable String fileName, HttpServletRequest request) {
+        Resource resource = fileStorageService.loadFileAsResource(fileName);
+        String contentType = null;
+        try {
+            contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
+        } catch (IOException ex) {
+            log.info("Não foi possível determinar o tipo do arquivo.");
+        }
+        if(contentType == null) {
+            contentType = "application/octet-stream";
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
     }
 
     @GetMapping("/por-mes/{ano}")
-    public ResponseEntity<Map<String, Map<String, BigDecimal>>> listarPorMes(
-            @PathVariable int ano,
-            @RequestParam(required = false) Long tipoId) {
+    public ResponseEntity<Map<String, Map<String, BigDecimal>>> listarPorMes(@PathVariable int ano) {
         log.info("Requisição GET em /api/v1/despesas/por-mes/{ano}, listarPorMes");
-        return ResponseEntity.ok(despesaService.listarPorMes(ano, tipoId));
+        return ResponseEntity.ok(despesaService.listarPorMes(ano));
     }
 
     @GetMapping("/proximas")
-    public ResponseEntity<List<Despesa>> listarProximasDespesas(
-            @RequestParam(defaultValue = "7") int dias) {
+    public ResponseEntity<List<DespesaResponseDTO>> listarProximasDespesas(@RequestParam(defaultValue = "7") int dias) {
         log.info("Requisição GET em /api/v1/despesas/proximas, dias: {}", dias);
         LocalDate hoje = LocalDate.now();
         LocalDate dataMaxima = hoje.plusDays(dias);
         List<Despesa> proximas = despesaService.listarProximasEVencidas(hoje, dataMaxima);
-        return ResponseEntity.ok(proximas);
+        List<DespesaResponseDTO> resposta = proximas.stream()
+                .map(this::toDespesaResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(resposta);
     }
-
-//    static class PagamentoRequest {
-//        private BigDecimal valorPago;
-//        private LocalDate dataPagamento;
-//        private Long contaCorrenteId;
-//        private Long metaEconomiaId;
-//
-//        public BigDecimal getValorPago() { return valorPago; }
-//        public void setValorPago(BigDecimal valorPago) { this.valorPago = valorPago; }
-//        public LocalDate getDataPagamento() { return dataPagamento; }
-//        public void setDataPagamento(LocalDate dataPagamento) { this.dataPagamento = dataPagamento; }
-//        public Long getContaCorrenteId() { return contaCorrenteId; }
-//        public void setContaCorrenteId(Long contaCorrenteId) { this.contaCorrenteId = contaCorrenteId; }
-//        public Long getMetaEconomiaId() { return metaEconomiaId; }
-//        public void setMetaEconomiaId(Long metaEconomiaId) { this.metaEconomiaId = metaEconomiaId; }
-//    }
 
     static class PagamentoRequest {
         private BigDecimal valorPago;
         private LocalDate dataPagamento;
         private Long contaCorrenteId;
         private Long metaEconomiaId;
-        private Long metaId; // Novo campo para compatibilidade com o frontend
+        private Long metaId;
+        private FormaDePagamento formaDePagamento;
 
         public BigDecimal getValorPago() { return valorPago; }
         public void setValorPago(BigDecimal valorPago) { this.valorPago = valorPago; }
@@ -128,15 +153,11 @@ public class DespesaController {
         public void setDataPagamento(LocalDate dataPagamento) { this.dataPagamento = dataPagamento; }
         public Long getContaCorrenteId() { return contaCorrenteId; }
         public void setContaCorrenteId(Long contaCorrenteId) { this.contaCorrenteId = contaCorrenteId; }
-
-        public Long getMetaEconomiaId() {
-            // Se metaEconomiaId for nulo, tenta usar metaId
-            return metaEconomiaId != null ? metaEconomiaId : metaId;
-        }
-
+        public Long getMetaEconomiaId() { return metaEconomiaId != null ? metaEconomiaId : metaId; }
         public void setMetaEconomiaId(Long metaEconomiaId) { this.metaEconomiaId = metaEconomiaId; }
         public Long getMetaId() { return metaId; }
         public void setMetaId(Long metaId) { this.metaId = metaId; }
+        public FormaDePagamento getFormaDePagamento() { return formaDePagamento; }
     }
 
     @GetMapping("/ano")
@@ -146,7 +167,6 @@ public class DespesaController {
         return ResponseEntity.ok(despesasAgrupadas);
     }
 
-
     @PutMapping("/{id}/estornar-pagamento")
     public ResponseEntity<DespesaDTO> estornarPagamento(@PathVariable Long id) {
         log.info("Requisição PUT em /api/v1/despesas/{id}/estornar-pagamento");
@@ -155,56 +175,57 @@ public class DespesaController {
         return ResponseEntity.ok(new DespesaDTO(despesa));
     }
 
-
-
-    // No MetaEconomiaController.java
-    @GetMapping("/{id}/despesas-relacionadas")
-    public ResponseEntity<List<DespesaDTO>> listarDespesasRelacionadas(@PathVariable Long id) {
-        List<Despesa> despesas = despesaService.buscarDespesasRelacionadas(id);
-        List<DespesaDTO> despesasDTO = despesas.stream()
-                .map(DespesaDTO::new)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(despesasDTO);
-    }
-
-    // Novo endpoint para filtro dinâmico
     @GetMapping("/filtrar-dinamico")
-    public ResponseEntity<List<Despesa>> listarDespesasPorFiltrosDinamicos(
-            @RequestParam(required = false) Long id,
-            @RequestParam(required = false) String nome,
-            @RequestParam(required = false) BigDecimal valorPrevisto,
-            @RequestParam(required = false) BigDecimal valorPago,
-            @RequestParam(required = false) String dataVencimento,
-            @RequestParam(required = false) String dataPagamento,
-            @RequestParam(required = false) Integer parcela,
-            @RequestParam(required = false) String detalhes,
-            @RequestParam(required = false) Long tipoDespesaId,
-            @RequestParam(required = false) Long contaCorrenteId,
-            @RequestParam(required = false) Long metaEconomiaId,
-            @RequestParam(required = false) Long despesaParceladaId,
-            @RequestParam(required = false) String classificacao,
-            @RequestParam(required = false) String variabilidade) {
-        log.info("Requisição GET em /api/v1/despesas/filtrar-dinamico com filtros");
-
-        Map<String, Object> filtros = new HashMap<>();
-        if (id != null) filtros.put("id", id);
-        if (nome != null) filtros.put("nome", nome);
-        if (valorPrevisto != null) filtros.put("valorPrevisto", valorPrevisto);
-        if (valorPago != null) filtros.put("valorPago", valorPago);
-        if (dataVencimento != null) filtros.put("dataVencimento", dataVencimento);
-        if (dataPagamento != null) filtros.put("dataPagamento", dataPagamento);
-        if (parcela != null) filtros.put("parcela", parcela);
-        if (detalhes != null) filtros.put("detalhes", detalhes);
-        if (tipoDespesaId != null) filtros.put("tipoDespesaId", tipoDespesaId);
-        if (contaCorrenteId != null) filtros.put("contaCorrenteId", contaCorrenteId);
-        if (metaEconomiaId != null) filtros.put("metaEconomiaId", metaEconomiaId);
-        if (despesaParceladaId != null) filtros.put("despesaParceladaId", despesaParceladaId);
-        if (classificacao != null) filtros.put("classificacao", classificacao);
-        if (variabilidade != null) filtros.put("variabilidade", variabilidade);
-
-        List<Despesa> despesas = despesaService.listarDespesasPorFiltrosDinamicos(filtros);
-        return ResponseEntity.ok(despesas);
+    public ResponseEntity<List<DespesaResponseDTO>> filtrarDinamico(@RequestParam Map<String, String> params) {
+        List<Despesa> despesas = despesaService.filtrarDinamico(params);
+        List<DespesaResponseDTO> resposta = despesas.stream()
+                .map(this::toDespesaResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(resposta);
     }
 
+    private DespesaResponseDTO toDespesaResponseDTO(Despesa despesa) {
+        SubcategoriaDespesa subcat = despesa.getSubcategoria();
+        CategoriaDespesa cat = subcat != null ? subcat.getCategoria() : null;
+        ContaCorrente conta = despesa.getContaCorrente();
+        MetaEconomia meta = despesa.getMetaEconomia();
 
+        String anexoUrl = null;
+        if (despesa.getAnexo() != null && !despesa.getAnexo().isEmpty()) {
+            anexoUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/api/v1/despesas/anexos/")
+                    .path(despesa.getAnexo())
+                    .toUriString();
+        }
+
+        DespesaResponseDTO dto = new DespesaResponseDTO();
+        dto.setId(despesa.getId());
+        dto.setNome(despesa.getNome());
+        dto.setTenantId(despesa.getTenantId());
+        dto.setValorPrevisto(despesa.getValorPrevisto());
+        dto.setValorPago(despesa.getValorPago());
+        dto.setDataVencimento(despesa.getDataVencimento());
+        dto.setDataPagamento(despesa.getDataPagamento());
+        dto.setParcela(despesa.getParcela());
+        dto.setDetalhes(despesa.getDetalhes());
+        dto.setClassificacao(despesa.getClassificacao() != null ? despesa.getClassificacao().name() : null);
+        dto.setVariabilidade(despesa.getVariabilidade() != null ? despesa.getVariabilidade().name() : null);
+        dto.setFormaDePagamento(despesa.getFormaDePagamento());
+        dto.setCategoria(cat != null ? new CategoriaDespesaDTO(cat.getId(), cat.getNome(), subcat != null ? new SubcategoriaDespesaDTO(subcat.getId(), subcat.getNome()) : null) : null);
+        dto.setConta(conta != null && despesa.getValorPago() != null ? new ContaCorrenteDTO(
+                conta.getId(),
+                conta.getAgencia(),
+                conta.getNumeroConta(),
+                conta.getBanco(),
+                conta.getNomeBanco(),
+                conta.getSaldo()
+        ) : null);
+        dto.setAnexo(anexoUrl);
+
+        if (meta != null) {
+            dto.setMetaEconomia(new MetaEconomiaDTO(meta.getId(), meta.getNome(), BigDecimal.valueOf(meta.getValor())));
+        }
+
+        return dto;
+    }
 }

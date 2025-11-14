@@ -27,10 +27,15 @@ public class BradescoAmazonPrimePdfExtractor implements PdfCartaoExtractor {
             boolean inMovimentacoes = false;
             for (String linha : linhas) {
                 String linhaLimpa = linha.trim().replaceAll("\s+", " ");
-                if (linhaLimpa.startsWith("Movimentações da conta")) {
-                    inMovimentacoes = true;
+
+                // Ignorar linhas que não são transações (cabeçalhos, nome do titular, etc.)
+                if (!linhaLimpa.matches("^\\d{2}/\\d{2}.*")) {
+                    if (linhaLimpa.contains("Nacionais em Reais (R$)")) {
+                        inMovimentacoes = true;
+                    }
                     continue;
                 }
+
                 if (inMovimentacoes && linhaLimpa.startsWith("Resumo dos encargos financeiros")) {
                     break; // Fim da seção de movimentações
                 }
@@ -54,14 +59,20 @@ public class BradescoAmazonPrimePdfExtractor implements PdfCartaoExtractor {
 
     private Transaction parseTransactionBradesco(String linha) {
         // Exemplo: 31/05 AMAZONMKTPLC*SPLINCOME SAO PAULO BRA 49,90 ou 11/06 AMAZONMKTPLC*COMERCIOC SAO PAULO(01/02) 39,50
-        Pattern p = Pattern.compile("^(\\d{2}/\\d{2}) (.+) (\\d+,\\d{2})$");
+        // Pagamento: 04/07 PAGAMENTO RECEBIDO - OBRIGADO 89,40 -
+        Pattern p = Pattern.compile("^(\\d{2}/\\d{2}) (.+?) (\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: -)?$");
         Matcher m = p.matcher(linha);
         if (m.find()) {
             String data = m.group(1);
             String estabelecimento = m.group(2).trim();
-            String valor = m.group(3).replace(".", "").replace(",", ".");
-            log.info("PARSE BRADESCO | linha: '{}' | data: '{}' | est: '{}' | valor: '{}'", linha, data, estabelecimento, valor);
-            return new Transaction(data, estabelecimento, null, valor);
+            String valorStr = m.group(3).replace(".", "").replace(",", ".");
+
+            if (linha.trim().endsWith("-")) {
+                valorStr = "-" + valorStr;
+            }
+
+            log.info("PARSE BRADESCO | linha: '{}' | data: '{}' | est: '{}' | valor: '{}'", linha, data, estabelecimento, valorStr);
+            return new Transaction(data, estabelecimento, null, valorStr);
         }
         return null;
     }

@@ -45,13 +45,14 @@ public class TransacaoFinanceiraController {
             @RequestParam(required = false) String descricao,
             @RequestParam(required = false) BigDecimal valor,
             @RequestParam(required = false) String detalhes,
-            @RequestParam(required = false) Long tipoDespesaId,
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(required = false) Long subcategoriaId,
             @RequestParam(required = false) String classificacao,
             @RequestParam(required = false) String variabilidade,
             @RequestParam(required = false) Integer parcela,
             @RequestParam(required = false) Integer totalParcelas,
-            @RequestParam(required = false) String dataInicio, // Novo parâmetro
-            @RequestParam(required = false) String dataFim,   // Novo parâmetro
+            @RequestParam(required = false) String dataInicio,
+            @RequestParam(required = false) String dataFim,
             @RequestParam(required = false) String origem) {
         log.info("Requisição GET em /api/v1/transacoes/filtrar-dinamico com filtros");
 
@@ -60,7 +61,8 @@ public class TransacaoFinanceiraController {
         if (descricao != null) filtros.put("descricao", descricao);
         if (valor != null) filtros.put("valor", valor);
         if (detalhes != null) filtros.put("detalhes", detalhes);
-        if (tipoDespesaId != null) filtros.put("tipoDespesaId", tipoDespesaId);
+        if (categoriaId != null) filtros.put("categoriaId", categoriaId);
+        if (subcategoriaId != null) filtros.put("subcategoriaId", subcategoriaId);
         if (classificacao != null) filtros.put("classificacao", classificacao);
         if (variabilidade != null) filtros.put("variabilidade", variabilidade);
         if (parcela != null) filtros.put("parcela", parcela);

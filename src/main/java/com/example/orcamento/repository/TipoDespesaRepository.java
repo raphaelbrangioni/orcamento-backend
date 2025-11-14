@@ -14,4 +14,6 @@ public interface TipoDespesaRepository extends JpaRepository<TipoDespesa, Long> 
     Optional<TipoDespesa> findByIdAndTenantId(Long id, String tenantId);
     void deleteByIdAndTenantId(Long id, String tenantId);
     boolean existsByNomeAndTenantId(String nome, String tenantId);
+    // Buscar o primeiro TipoDespesa por subcategoria e tenant
+    Optional<TipoDespesa> findFirstBySubcategoriaIdAndTenantId(Long subcategoriaId, String tenantId);
 }

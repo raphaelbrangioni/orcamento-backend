@@ -2,7 +2,9 @@
 package com.example.orcamento.controller;
 
 import com.example.orcamento.model.Compra;
+import com.example.orcamento.dto.CompraDTO;
 import com.example.orcamento.service.CompraService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/compras")
+@Slf4j
 public class CompraController {
     private final CompraService compraService;
 
@@ -26,15 +29,22 @@ public class CompraController {
             @RequestBody Compra compra,
             @RequestParam String mesPrimeiraParcela,
             @RequestParam Integer numeroParcelas) {
+        log.info("Requisição POST em /api/v1/compras/parceladas, compra: {}, mesPrimeiraParcela: {}, numeroParcelas: {}", compra, mesPrimeiraParcela, numeroParcelas);
         Compra novaCompra = compraService.cadastrarCompraParcelada(compra, mesPrimeiraParcela, numeroParcelas);
         return ResponseEntity.status(HttpStatus.CREATED).body(novaCompra);
     }
 
-//    @GetMapping("/ultimas")
-//    public ResponseEntity<List<Compra>> listarUltimasCompras() {
-//        List<Compra> ultimasCompras = compraService.listarUltimasCompras(5); // Últimas 5 compras
-//        return ResponseEntity.ok(ultimasCompras);
-//    }
+    @GetMapping("/ultimas")
+    public ResponseEntity<Page<Compra>> listarUltimasCompras(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String descricao,
+            @RequestParam(required = false) Long cartaoId,
+            @RequestParam(required = false) Long subcategoriaId) {
+        log.info("Requisição GET em /api/v1/compras/ultimas, page: {}, size: {}, descricao: {}, cartaoId: {}, subcategoriaId: {}", page, size, descricao, cartaoId, subcategoriaId);
+        Page<Compra> ultimasCompras = compraService.listarCompras(page, size, descricao, cartaoId, subcategoriaId);
+        return ResponseEntity.ok(ultimasCompras);
+    }
 
     // Novo endpoint para editar
     @PutMapping("/{id}")
@@ -55,14 +65,14 @@ public class CompraController {
     }
 
     // Endpoint ajustado para suportar filtros e paginação
-    @GetMapping("/ultimas")
-    public ResponseEntity<Page<Compra>> listarCompras(
+    @GetMapping
+    public ResponseEntity<List<CompraDTO>> listarCompras(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String descricao,
             @RequestParam(required = false) Long cartaoId,
-            @RequestParam(required = false) Long tipoDespesaId) {
-        Page<Compra> compras = compraService.listarCompras(page, size, descricao, cartaoId, tipoDespesaId);
+            @RequestParam(required = false) Long subcategoriaId) {
+        List<CompraDTO> compras = compraService.listarComprasDTO(page, size, descricao, cartaoId, subcategoriaId);
         return ResponseEntity.ok(compras);
     }
 }

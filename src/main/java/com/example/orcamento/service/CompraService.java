@@ -1,13 +1,14 @@
 // src/main/java/com/example/orcamento/service/CompraService.java
 package com.example.orcamento.service;
 
+import com.example.orcamento.dto.CompraDTO;
 import com.example.orcamento.model.Compra;
 import com.example.orcamento.model.LancamentoCartao;
-import com.example.orcamento.model.TipoDespesa;
+import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import com.example.orcamento.repository.CompraRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
-import com.example.orcamento.repository.TipoDespesaRepository;
+import com.example.orcamento.repository.SubcategoriaDespesaRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,12 +29,19 @@ import java.util.List;
 public class CompraService {
     private final CompraRepository compraRepository;
     private final LancamentoCartaoRepository lancamentoCartaoRepository;
-    private final TipoDespesaRepository tipoDespesaRepository;
+    private final SubcategoriaDespesaRepository subcategoriaDespesaRepository;
     private final CartaoCreditoRepository cartaoCreditoRepository;
 
     @Transactional
     public Compra cadastrarCompraParcelada(Compra compra, String mesPrimeiraParcela, Integer numeroParcelas) {
         log.info("Cadastrando compra parcelada: {}", compra);
+
+        // Garante que a subcategoria está gerenciada pelo JPA
+        if (compra.getSubcategoria() != null && compra.getSubcategoria().getId() != null) {
+            SubcategoriaDespesa sub = subcategoriaDespesaRepository.findById(compra.getSubcategoria().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Subcategoria não encontrada: " + compra.getSubcategoria().getId()));
+            compra.setSubcategoria(sub);
+        }
 
         // Busca o cartão do tenant atual
         if (compra.getCartaoCredito() != null && compra.getCartaoCredito().getId() != null) {
@@ -71,19 +79,17 @@ public class CompraService {
             }
         }
         if (indiceMesInicial == -1) {
-            throw new IllegalArgumentException("Mês inicial inválido: " + mesPrimeiraParcela);
+            throw new IllegalArgumentException("Mês da primeira parcela inválido: " + mesPrimeiraParcela);
         }
 
-        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-
-        int anoInicial = compra.getDataCompra().getYear();
+        String tenantId = compra.getTenantId();
         BigDecimal valorTotal = compra.getValorTotal();
         BigDecimal valorParcela = valorTotal.divide(BigDecimal.valueOf(numeroParcelas), 2, BigDecimal.ROUND_HALF_UP);
 
         for (int i = 0; i < numeroParcelas; i++) {
-            int mesIndex = (indiceMesInicial + i) % 12;
-            int anosAdicionais = (indiceMesInicial + i) / 12;
-            String mesAnoFatura = meses[mesIndex] + "/" + (anoInicial + anosAdicionais);
+            int mesFaturaIndex = (indiceMesInicial + i) % 12;
+            int anoFatura = compra.getDataCompra().getYear() + ((indiceMesInicial + i) / 12);
+            String mesAnoFatura = meses[mesFaturaIndex] + "/" + anoFatura;
 
             LancamentoCartao lancamento = LancamentoCartao.builder()
                     .descricao(compra.getDescricao() + " - Parcela " + (i + 1) + "/" + numeroParcelas)
@@ -92,7 +98,7 @@ public class CompraService {
                     .totalParcelas(numeroParcelas)
                     .dataCompra(compra.getDataCompra())
                     .cartaoCredito(compra.getCartaoCredito())
-                    .tipoDespesa(compra.getTipoDespesa())
+                    .subcategoria(compra.getSubcategoria())
                     .proprietario(compra.getProprietario())
                     .detalhes(compra.getDetalhes())
                     .mesAnoFatura(mesAnoFatura)
@@ -123,11 +129,24 @@ public class CompraService {
         return pageResult;
     }
 
-    public Page<Compra> listarCompras(int page, int size, String descricao, Long cartaoId, Long tipoDespesaId) {
+    public Page<Compra> listarCompras(int page, int size, String descricao, Long cartaoId, Long subcategoriaId) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        log.info("[DEBUG] Buscando compras por filtro para tenantId={} page={} size={} descricao={} cartaoId={} tipoDespesaId={}", tenantId, page, size, descricao, cartaoId, tipoDespesaId);
-        return compraRepository.findByFilters(descricao, cartaoId, tipoDespesaId, tenantId, pageRequest);
+        log.info("[DEBUG] Buscando compras por filtro para tenantId={} page={} size={} descricao={} cartaoId={} subcategoriaId={}", tenantId, page, size, descricao, cartaoId, subcategoriaId);
+        if (subcategoriaId != null) {
+            return compraRepository.findByTenantIdAndSubcategoriaId(tenantId, subcategoriaId, pageRequest);
+        } else {
+            return compraRepository.findByTenantId(tenantId, pageRequest);
+        }
+    }
+
+    public CompraDTO toCompraDTO(Compra compra) {
+        return new CompraDTO(compra);
+    }
+
+    public List<CompraDTO> listarComprasDTO(int page, int size, String descricao, Long cartaoId, Long subcategoriaId) {
+        Page<Compra> comprasPage = listarCompras(page, size, descricao, cartaoId, subcategoriaId);
+        return comprasPage.stream().map(this::toCompraDTO).toList();
     }
 
     @Transactional
@@ -143,13 +162,13 @@ public class CompraService {
         compra.setNumeroParcelas(compraAtualizada.getNumeroParcelas());
         compra.setDataCompra(compraAtualizada.getDataCompra());
         compra.setCartaoCredito(compraAtualizada.getCartaoCredito());
-        // Validação e busca do TipoDespesa
-        if (compraAtualizada.getTipoDespesa() == null || compraAtualizada.getTipoDespesa().getId() == null) {
-            throw new IllegalArgumentException("O tipo de despesa é obrigatório.");
+        // Validação e busca da SubcategoriaDespesa
+        if (compraAtualizada.getSubcategoria() == null || compraAtualizada.getSubcategoria().getId() == null) {
+            throw new IllegalArgumentException("A subcategoria é obrigatória.");
         }
-        TipoDespesa tipoDespesa = tipoDespesaRepository.findById(compraAtualizada.getTipoDespesa().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Tipo de despesa com ID " + compraAtualizada.getTipoDespesa().getId() + " não encontrado."));
-        compra.setTipoDespesa(tipoDespesa);
+        SubcategoriaDespesa subcategoria = subcategoriaDespesaRepository.findById(compraAtualizada.getSubcategoria().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Subcategoria com ID " + compraAtualizada.getSubcategoria().getId() + " não encontrada."));
+        compra.setSubcategoria(subcategoria);
         compra.setProprietario(compraAtualizada.getProprietario());
         compra.setDetalhes(compraAtualizada.getDetalhes());
         // Remove as parcelas antigas e gera novas

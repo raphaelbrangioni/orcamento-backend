@@ -1,14 +1,21 @@
-// src/main/java/com/example/orcamento/controller/LancamentoCartaoController.java
 package com.example.orcamento.controller;
 
 import com.example.orcamento.dto.dashboard.FaturaCartaoAnualDTO;
+import com.example.orcamento.dto.LancamentoCartaoResponseDTO;
+import com.example.orcamento.dto.CategoriaDespesaDTO;
+import com.example.orcamento.dto.LancamentoCartaoComCompraDTO;
+import com.example.orcamento.dto.LancamentoCartaoDetalhadoDTO;
+import com.example.orcamento.dto.SubcategoriaDespesaDTO;
 import com.example.orcamento.model.LancamentoCartao;
+import com.example.orcamento.model.SubcategoriaDespesa;
+import com.example.orcamento.model.CategoriaDespesa;
 import com.example.orcamento.service.LancamentoCartaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,22 +30,94 @@ public class LancamentoCartaoController {
     private final LancamentoCartaoService lancamentoCartaoService;
 
     @GetMapping
-    public ResponseEntity<List<LancamentoCartao>> listarLancamentos() {
+    public ResponseEntity<List<LancamentoCartaoResponseDTO>> listarLancamentos() {
         log.info("Requisição GET em /api/v1/lancamentos-cartao, listarLancamentos");
-        return ResponseEntity.ok(lancamentoCartaoService.listarLancamentos());
+        List<LancamentoCartaoResponseDTO> resposta = lancamentoCartaoService.listarLancamentos().stream()
+            .map(this::toLancamentoCartaoResponseDTO)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(resposta);
     }
 
+    @GetMapping("/com-compra")
+    public ResponseEntity<List<LancamentoCartaoComCompraDTO>> listarLancamentosComCompra() {
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/com-compra");
+        List<LancamentoCartaoComCompraDTO> resposta = lancamentoCartaoService.listarLancamentosComCompra();
+        return ResponseEntity.ok(resposta);
+    }
+
+    private LancamentoCartaoResponseDTO toLancamentoCartaoResponseDTO(LancamentoCartao lancamento) {
+        SubcategoriaDespesa tipo = lancamento.getSubcategoria();
+        SubcategoriaDespesa subcat = tipo != null ? lancamento.getSubcategoria() : null;
+        CategoriaDespesa cat = subcat != null ? subcat.getCategoria() : null;
+        return LancamentoCartaoResponseDTO.builder()
+            .id(lancamento.getId())
+            .descricao(lancamento.getDescricao())
+            .valorTotal(lancamento.getValorTotal())
+            .parcelaAtual(lancamento.getParcelaAtual())
+            .totalParcelas(lancamento.getTotalParcelas())
+            .dataCompra(lancamento.getDataCompra())
+            .detalhes(lancamento.getDetalhes())
+            .mesAnoFatura(lancamento.getMesAnoFatura())
+            .cartaoCreditoId(lancamento.getCartaoCredito() != null ? lancamento.getCartaoCredito().getId() : null)
+            .categoria(cat != null ? new CategoriaDespesaDTO(cat.getId(), cat.getNome(), subcat != null ? new SubcategoriaDespesaDTO(subcat.getId(), subcat.getNome()) : null) : null)
+            .proprietario(lancamento.getProprietario())
+            .tenantId(lancamento.getTenantId())
+            .dataRegistro(lancamento.getDataRegistro() != null ? lancamento.getDataRegistro().toLocalDate() : null)
+            .pagoPorTerceiro(lancamento.getPagoPorTerceiro())
+            .classificacao(lancamento.getClassificacao() != null ? lancamento.getClassificacao().name() : null)
+            .variabilidade(lancamento.getVariabilidade() != null ? lancamento.getVariabilidade().name() : null)
+            .build();
+    }
 
     @GetMapping("/filtrar")
     public ResponseEntity<List<LancamentoCartao>> listarLancamentosPorFiltros(
-            @RequestParam(required = false) Long cartaoId,
+            @RequestParam(required = false) Long cartaoCreditoId,
             @RequestParam(required = false) String mesAnoFatura) {
-        log.info("Requisição GET em /api/v1/lancamentos-cartao/filtrar com filtros - cartaoId: {}, mesAnoFatura: {}", cartaoId, mesAnoFatura);
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/filtrar com filtros - cartaoId: {}, mesAnoFatura: {}", cartaoCreditoId, mesAnoFatura);
 
-        List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosPorFiltros(cartaoId, mesAnoFatura);
+        List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosPorFiltros(cartaoCreditoId, mesAnoFatura);
         return ResponseEntity.ok(lancamentos);
     }
 
+    @GetMapping("/filtrar-dinamico")
+    public ResponseEntity<List<LancamentoCartao>> listarLancamentosPorFiltrosDinamicos(
+            @RequestParam(required = false) Long id,
+            @RequestParam(required = false) String descricao,
+            @RequestParam(required = false) Integer parcelaAtual,
+            @RequestParam(required = false) Integer totalParcelas,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataCompraInicial,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataCompraFinal,
+            @RequestParam(required = false) String mesAnoFatura,
+            @RequestParam(required = false) Long cartaoCreditoId,
+            @RequestParam(required = false) Long tipoDespesaId,
+            @RequestParam(required = false) String proprietario,
+            @RequestParam(required = false) String dataRegistro,
+            @RequestParam(required = false) Long compraId,
+            @RequestParam(required = false) Boolean pagoPorTerceiro,
+            @RequestParam(required = false) String classificacao,
+            @RequestParam(required = false) String variabilidade) {
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/filtrar-dinamico com filtros");
+
+        Map<String, Object> filtros = new HashMap<>();
+        if (id != null) filtros.put("id", id);
+        if (descricao != null) filtros.put("descricao", descricao);
+        if (parcelaAtual != null) filtros.put("parcelaAtual", parcelaAtual);
+        if (totalParcelas != null) filtros.put("totalParcelas", totalParcelas);
+        if (dataCompraInicial != null) filtros.put("dataCompraInicial", dataCompraInicial);
+        if (dataCompraFinal != null) filtros.put("dataCompraFinal", dataCompraFinal);
+        if (mesAnoFatura != null) filtros.put("mesAnoFatura", mesAnoFatura);
+        if (cartaoCreditoId != null) filtros.put("cartaoCreditoId", cartaoCreditoId);
+        if (tipoDespesaId != null) filtros.put("tipoDespesaId", tipoDespesaId);
+        if (proprietario != null) filtros.put("proprietario", proprietario);
+        if (dataRegistro != null) filtros.put("dataRegistro", dataRegistro);
+        if (compraId != null) filtros.put("compraId", compraId);
+        if (pagoPorTerceiro != null) filtros.put("pagoPorTerceiro", pagoPorTerceiro);
+        if (classificacao != null) filtros.put("classificacao", classificacao);
+        if (variabilidade != null) filtros.put("variabilidade", variabilidade);
+
+        List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosPorFiltrosDinamicos(filtros);
+        return ResponseEntity.ok(lancamentos);
+    }
 
     @PostMapping
     public ResponseEntity<LancamentoCartao> cadastrarLancamento(@RequestBody LancamentoCartao lancamento) {
@@ -69,6 +148,19 @@ public class LancamentoCartaoController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/detalhes-compra")
+    public ResponseEntity<LancamentoCartaoDetalhadoDTO> getLancamentoComDetalhesDaCompra(@PathVariable Long id) {
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/{}/detalhes-compra", id);
+        LancamentoCartaoDetalhadoDTO dto = lancamentoCartaoService.buscarLancamentoComCompra(id);
+        return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/faturas-ano")
+    public List<FaturaCartaoAnualDTO> getFaturasAnuais(@RequestParam int ano) {
+        log.info("Requisição GET em /api/v1/lancamentos-cartao/faturas-ano, ano: {}", ano);
+        return lancamentoCartaoService.getFaturasAnuais(ano);
+    }
+
     @GetMapping("/fatura-por-cartao")
     public ResponseEntity<Map<Long, Double>> getFaturaPorCartao(@RequestParam("mesAno") String mesAno) {
         log.info("Requisição GET em /api/v1/lancamentos-cartao/fatura-por-cartao, getFaturaPorCartao");
@@ -82,75 +174,11 @@ public class LancamentoCartaoController {
         return ResponseEntity.ok(faturasPorCartao);
     }
 
-    @GetMapping("/faturas-ano")
-    public List<FaturaCartaoAnualDTO> getFaturasPorAno(@RequestParam int ano) {
-        log.info("Requisição GET em /api/v1/lancamentos-cartao/faturas-ano, ano: {}", ano);
-        return lancamentoCartaoService.getFaturasAnuais(ano);
-    }
-
-    @PatchMapping("/{id}/pago-por-terceiro")
-    public ResponseEntity<LancamentoCartao> atualizarStatusPagamento(
-            @PathVariable Long id,
-            @RequestBody Map<String, Boolean> payload) {
-        log.info("Requisição PATCH em /api/v1/lancamentos-cartao/{id}/pago-por-terceiro, atualizarStatusPagamento");
-        log.info("ID: {}, Status: {}", id, payload.get("pagoPorTerceiro"));
-
-        Boolean pagoPorTerceiro = payload.get("pagoPorTerceiro");
-        if (pagoPorTerceiro == null) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        return ResponseEntity.ok(lancamentoCartaoService.atualizarStatusPagamento(id, pagoPorTerceiro));
-    }
-
-    // Endpoint atualizado com filtro opcional mesAnoFatura
     @GetMapping("/terceiros")
     public ResponseEntity<List<LancamentoCartao>> listarLancamentosTerceiros(
             @RequestParam(required = false) String mesAnoFatura) {
         log.info("Requisição GET em /api/v1/lancamentos-cartao/terceiros, mesAnoFatura: {}", mesAnoFatura);
         List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosTerceiros(mesAnoFatura);
-        return ResponseEntity.ok(lancamentos);
-    }
-
-
-    // Novo endpoint para filtro dinâmico
-    @GetMapping("/filtrar-dinamico")
-    public ResponseEntity<List<LancamentoCartao>> listarLancamentosPorFiltrosDinamicos(
-            @RequestParam(required = false) Long id,
-            @RequestParam(required = false) String descricao,
-            @RequestParam(required = false) Integer parcelaAtual,
-            @RequestParam(required = false) Integer totalParcelas,
-            @RequestParam(required = false) String dataCompra,
-            @RequestParam(required = false) String detalhes,
-            @RequestParam(required = false) String mesAnoFatura,
-            @RequestParam(required = false) Long cartaoCreditoId,
-            @RequestParam(required = false) Long tipoDespesaId,
-            @RequestParam(required = false) String proprietario,
-            @RequestParam(required = false) String dataRegistro,
-            @RequestParam(required = false) Long compraId,
-            @RequestParam(required = false) Boolean pagoPorTerceiro,
-            @RequestParam(required = false) String classificacao,
-            @RequestParam(required = false) String variabilidade) {
-        log.info("Requisição GET em /api/v1/lancamentos-cartao/filtrar-dinamico com filtros");
-
-        Map<String, Object> filtros = new HashMap<>();
-        if (id != null) filtros.put("id", id);
-        if (descricao != null) filtros.put("descricao", descricao);
-        if (parcelaAtual != null) filtros.put("parcelaAtual", parcelaAtual);
-        if (totalParcelas != null) filtros.put("totalParcelas", totalParcelas);
-        if (dataCompra != null) filtros.put("dataCompra", dataCompra);
-        if (detalhes != null) filtros.put("detalhes", detalhes);
-        if (mesAnoFatura != null) filtros.put("mesAnoFatura", mesAnoFatura);
-        if (cartaoCreditoId != null) filtros.put("cartaoCreditoId", cartaoCreditoId);
-        if (tipoDespesaId != null) filtros.put("tipoDespesaId", tipoDespesaId);
-        if (proprietario != null) filtros.put("proprietario", proprietario);
-        if (dataRegistro != null) filtros.put("dataRegistro", dataRegistro);
-        if (compraId != null) filtros.put("compraId", compraId);
-        if (pagoPorTerceiro != null) filtros.put("pagoPorTerceiro", pagoPorTerceiro);
-        if (classificacao != null) filtros.put("classificacao", classificacao);
-        if (variabilidade != null) filtros.put("variabilidade", variabilidade);
-
-        List<LancamentoCartao> lancamentos = lancamentoCartaoService.listarLancamentosPorFiltrosDinamicos(filtros);
         return ResponseEntity.ok(lancamentos);
     }
 }

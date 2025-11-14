@@ -24,7 +24,7 @@ public class DespesaParceladaDTO {
     private Integer numeroParcelas;
     private LocalDate dataInicial;
     private Month mesPrimeiraParcela;
-    private Long tipoDespesaId;
+    private Long subcategoriaId;
     private String proprietario;
     private String detalhes;
     private LocalDate dataCadastro;
@@ -38,8 +38,7 @@ public class DespesaParceladaDTO {
         this.numeroParcelas = despesaParcelada.getNumeroParcelas();
         this.dataInicial = despesaParcelada.getDataInicial();
         this.mesPrimeiraParcela = despesaParcelada.getMesPrimeiraParcela();
-        this.tipoDespesaId = despesaParcelada.getTipoDespesa() != null ?
-                despesaParcelada.getTipoDespesa().getId() : null;
+        this.subcategoriaId = despesaParcelada.getSubcategoria() != null ? despesaParcelada.getSubcategoria().getId() : null;
         this.proprietario = despesaParcelada.getProprietario();
         this.detalhes = despesaParcelada.getDetalhes();
         this.dataCadastro = despesaParcelada.getDataCadastro();

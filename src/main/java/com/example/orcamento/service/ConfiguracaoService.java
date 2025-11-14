@@ -42,9 +42,9 @@ public class ConfiguracaoService {
     }
 
     private ConfiguracaoDTO mapToDTO(Configuracao configuracao) {
-        return ConfiguracaoDTO.builder()
-                .id(configuracao.getId())
-                .tipoDespesaInvestimentoId(configuracao.getTipoDespesaInvestimentoId())
-                .build();
+        ConfiguracaoDTO dto = new ConfiguracaoDTO();
+        dto.setId(configuracao.getId());
+        dto.setTipoDespesaInvestimentoId(configuracao.getTipoDespesaInvestimentoId());
+        return dto;
     }
 }

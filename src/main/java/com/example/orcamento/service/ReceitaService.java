@@ -181,6 +181,24 @@ public class ReceitaService {
                 ));
     }
 
+    public Map<String, Map<String, BigDecimal>> listarReceitasPorMesETipo(int ano) {
+        List<Receita> receitas = receitaRepository.findAll().stream()
+                .filter(r -> r.getDataRecebimento().getYear() == ano)
+                .collect(Collectors.toList());
+
+        return receitas.stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getDataRecebimento().getMonth().toString(),
+                        Collectors.groupingBy(
+                                r -> r.getTipo() != null ? r.getTipo().name() : "OUTROS",
+                                Collectors.mapping(
+                                        Receita::getValor,
+                                        Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                                )
+                        )
+                ));
+    }
+
     @Transactional
     public Receita efetivarReceita(Long id) {
         Receita receita = receitaRepository.findById(id)

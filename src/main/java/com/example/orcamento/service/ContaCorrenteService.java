@@ -70,6 +70,7 @@ public class ContaCorrenteService {
         conta.setAgencia(contaAtualizada.getAgencia());
         conta.setNumeroConta(contaAtualizada.getNumeroConta());
         conta.setSaldo(contaAtualizada.getSaldo());
+        conta.setContaAtiva(contaAtualizada.isContaAtiva());
 
         return contaCorrenteRepository.save(conta);
     }

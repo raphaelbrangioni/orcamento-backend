@@ -40,17 +40,21 @@ public class MovimentacaoService {
         movimentacaoRepository.save(movimentacao);
     }
 
-    public List<Movimentacao> listarMovimentacoes(LocalDate dataInicio, LocalDate dataFim) {
-        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        return movimentacaoRepository.findByDataRecebimentoBetweenAndTenantId(dataInicio, dataFim, tenantId);
-    }
-
     public List<Movimentacao> listarMovimentacoesPorConta(Long contaCorrenteId, LocalDate dataInicio, LocalDate dataFim) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        if (contaCorrenteId == null) {
-            return listarMovimentacoes(dataInicio, dataFim);
+
+        boolean hasDateFilter = dataInicio != null && dataFim != null;
+        boolean hasContaFilter = contaCorrenteId != null;
+
+        if (hasDateFilter && hasContaFilter) {
+            return movimentacaoRepository.findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, tenantId, dataInicio, dataFim);
+        } else if (hasDateFilter) {
+            return movimentacaoRepository.findByDataRecebimentoBetweenAndTenantId(dataInicio, dataFim, tenantId);
+        } else if (hasContaFilter) {
+            return movimentacaoRepository.findByContaCorrenteIdAndTenantId(contaCorrenteId, tenantId);
+        } else {
+            return movimentacaoRepository.findByTenantId(tenantId);
         }
-        return movimentacaoRepository.findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, tenantId, dataInicio, dataFim);
     }
 
 }

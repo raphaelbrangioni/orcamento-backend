@@ -1,9 +1,12 @@
 package com.example.orcamento.model;
 
+import com.example.orcamento.model.enums.FormaDePagamento;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import com.example.orcamento.model.TipoClassificacaoDespesa;
+import com.example.orcamento.model.TipoVariabilidadeDespesa;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,22 +30,23 @@ public class Despesa {
     private String tenantId;
 
     @Column(nullable = false)
-    private BigDecimal valorPrevisto; // 🔹 Valor estimado da despesa
+    private BigDecimal valorPrevisto; // Valor estimado da despesa
 
-    private BigDecimal valorPago; // 🔹 Valor real pago (pode ser null até o pagamento)
+    private BigDecimal valorPago; // Valor real pago (pode ser null até o pagamento)
 
     @Column(nullable = false)
-    private LocalDate dataVencimento; // 🔹 Data prevista para pagamento
+    private LocalDate dataVencimento; // Data prevista para pagamento
 
-    private LocalDate dataPagamento; // 🔹 Data em que a despesa foi paga (pode ser null)
+    private LocalDate dataPagamento; // Data em que a despesa foi paga (pode ser null)
 
-    private Integer parcela; // 🔹 Número da parcela (se aplicável)
+    private Integer parcela; // Número da parcela (se aplicável)
 
-    private String detalhes; // 🔹 Descrição ou observação sobre a despesa
+    private String detalhes; // Descrição ou observação sobre a despesa
 
-    @ManyToOne
-    @JoinColumn(name = "tipo_despesa_id", nullable = false)
-    private TipoDespesa tipo;
+    // Remover ou tornar opcional o relacionamento com TipoDespesa
+    //@ManyToOne
+    //@JoinColumn(name = "tipo_despesa_id")
+    //private TipoDespesa tipo;
 
     // Novo campo
     @ManyToOne
@@ -57,6 +61,10 @@ public class Despesa {
     // Adicione este campo ao seu modelo Despesa.java existente
     private Long despesaParceladaId;
 
+    @ManyToOne
+    @JoinColumn(name = "subcategoria_id")
+    private SubcategoriaDespesa subcategoria;
+
     // Em Despesa.java
     @Enumerated(EnumType.STRING)
     @Column(name = "classificacao")
@@ -65,4 +73,10 @@ public class Despesa {
     @Enumerated(EnumType.STRING)
     @Column(name = "variabilidade")
     private TipoVariabilidadeDespesa variabilidade;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "forma_pagamento")
+    private FormaDePagamento formaDePagamento;
+
+    private String anexo; // Campo para armazenar o nome do arquivo
 }

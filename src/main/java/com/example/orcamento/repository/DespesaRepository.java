@@ -12,8 +12,6 @@ import java.util.List;
 
 @Repository
 public interface DespesaRepository extends JpaRepository<Despesa, Long>, JpaSpecificationExecutor<Despesa> {
-    @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.tipo.id = :tipoId")
-    List<Despesa> findByTipoId(@Param("tenantId") String tenantId, @Param("tipoId") Long tipoId);
 
     @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND ((d.dataPagamento IS NOT NULL AND YEAR(d.dataPagamento) = :ano AND MONTH(d.dataPagamento) = :mes) OR (d.dataPagamento IS NULL AND YEAR(d.dataVencimento) = :ano AND MONTH(d.dataVencimento) = :mes))")
     List<Despesa> findByAnoAndMes(@Param("tenantId") String tenantId, @Param("ano") int ano, @Param("mes") int mes);
@@ -21,8 +19,8 @@ public interface DespesaRepository extends JpaRepository<Despesa, Long>, JpaSpec
     @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.dataVencimento BETWEEN :inicio AND :fim")
     List<Despesa> findByDataVencimentoBetween(@Param("tenantId") String tenantId, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 
-    @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND YEAR(d.dataVencimento) = :ano AND d.tipo.id = :tipoId")
-    List<Despesa> findByAnoAndTipoId(@Param("tenantId") String tenantId, @Param("ano") int ano, @Param("tipoId") Long tipoId);
+    @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND YEAR(d.dataVencimento) = :ano AND d.subcategoria.id = :subcategoriaId")
+    List<Despesa> findByAnoAndSubcategoriaId(@Param("tenantId") String tenantId, @Param("ano") int ano, @Param("subcategoriaId") Long subcategoriaId);
 
     @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.dataVencimento BETWEEN :dataInicio AND :dataFim AND d.dataPagamento IS NULL")
     List<Despesa> findByDataVencimentoBetweenAndDataPagamentoIsNull(
@@ -57,16 +55,23 @@ public interface DespesaRepository extends JpaRepository<Despesa, Long>, JpaSpec
     @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.dataVencimento BETWEEN :inicio AND :fim")
     List<Despesa> findByTenantIdAndDataVencimentoBetween(@Param("tenantId") String tenantId, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 
-    @Query("SELECT d.tipo.id, d.tipo.nome, SUM(d.valorPrevisto), SUM(d.valorPago) " +
+    @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.subcategoria.id = :subcategoriaId")
+    List<Despesa> findBySubcategoriaId(@Param("tenantId") String tenantId, @Param("subcategoriaId") Long subcategoriaId);
+
+    @Query("SELECT d.subcategoria.id, d.subcategoria.nome, SUM(d.valorPrevisto), SUM(d.valorPago) " +
             "FROM Despesa d " +
             "WHERE d.tenantId = :tenantId " +
             "AND (:dataInicio IS NULL OR d.dataVencimento >= :dataInicio) " +
             "AND (:dataFim IS NULL OR d.dataVencimento <= :dataFim) " +
-            "AND (:tipoDespesaId IS NULL OR d.tipo.id = :tipoDespesaId) " +
-            "GROUP BY d.tipo.id, d.tipo.nome")
-    List<Object[]> findDespesasPorTipo(
+            "AND (:subcategoriaId IS NULL OR d.subcategoria.id = :subcategoriaId) " +
+            "GROUP BY d.subcategoria.id, d.subcategoria.nome")
+    List<Object[]> findDespesasPorSubcategoria(
             @Param("tenantId") String tenantId,
             @Param("dataInicio") LocalDate dataInicio,
             @Param("dataFim") LocalDate dataFim,
-            @Param("tipoDespesaId") Long tipoDespesaId);
+            @Param("subcategoriaId") Long subcategoriaId);
+
+    @Query("SELECT CASE WHEN COUNT(d) > 0 THEN TRUE ELSE FALSE END FROM Despesa d WHERE d.tenantId = :tenantId AND d.nome LIKE %:nome% AND YEAR(d.dataVencimento) = :ano AND MONTH(d.dataVencimento) = :mes")
+    boolean existsByNomeLikeAndMesAndAno(@Param("tenantId") String tenantId, @Param("nome") String nome, @Param("mes") int mes, @Param("ano") int ano);
+
 }

@@ -9,6 +9,8 @@ import com.example.orcamento.service.extractor.PdfCartaoExtractorCartao1;
 import com.example.orcamento.service.extractor.PdfCartaoExtractorCartao3;
 import com.example.orcamento.service.extractor.PdfCartaoExtractorCartao5;
 import com.example.orcamento.service.extractor.PdfCartaoExtractorGenerico;
+import com.example.orcamento.service.extractor.SantanderPdfExtractor;
+import com.example.orcamento.service.extractor.ZaffariCardPdfExtractor;
 
 public class PdfCartaoExtractorFactory {
     private static final Map<String, PdfCartaoExtractor> extractors = new HashMap<>();
@@ -20,6 +22,8 @@ public class PdfCartaoExtractorFactory {
         extractors.put("cartao3", new PdfCartaoExtractorCartao3());
         extractors.put("inter", new PdfCartaoExtractorCartao5());
         extractors.put("cartao5", new PdfCartaoExtractorCartao5());
+        extractors.put("santander", new SantanderPdfExtractor());
+        extractors.put("zaffari", new ZaffariCardPdfExtractor());
         // Adicione outros modelos aqui conforme necessário
     }
 

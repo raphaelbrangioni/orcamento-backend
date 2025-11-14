@@ -38,6 +38,9 @@ public class ContaCorrente {
     @Column(nullable = false)
     private String tenantId;
 
+    @Column(name = "conta_ativa", nullable = false)
+    private boolean contaAtiva = true;
+
     // Métodos para atualizar saldo (mantidos explicitamente)
     public void adicionarValor(BigDecimal valor) {
         this.saldo = this.saldo.add(valor);

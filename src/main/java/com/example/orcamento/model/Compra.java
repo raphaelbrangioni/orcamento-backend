@@ -40,8 +40,8 @@ public class Compra {
     private CartaoCredito cartaoCredito;
 
     @ManyToOne
-    @JoinColumn(name = "tipo_despesa_id", nullable = false)
-    private TipoDespesa tipoDespesa;
+    @JoinColumn(name = "subcategoria_id", nullable = false)
+    private SubcategoriaDespesa subcategoria;
 
     @Column(nullable = false)
     private String proprietario;

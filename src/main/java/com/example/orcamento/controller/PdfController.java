@@ -53,6 +53,7 @@ public class PdfController {
             List<Transaction> transacoes = extractor.extrair(pdfInputStream);
             BigDecimal total = transacoes.stream()
                     .map(t -> new BigDecimal(t.getValor()))
+                    .filter(valor -> valor.signum() > 0)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             total = total.setScale(2, BigDecimal.ROUND_HALF_UP);
             Map<String, Object> resposta = new HashMap<>();

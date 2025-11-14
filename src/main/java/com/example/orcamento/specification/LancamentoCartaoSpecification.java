@@ -8,6 +8,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +41,11 @@ public class LancamentoCartaoSpecification {
                         "%" + filtros.get("detalhes").toString().toLowerCase() + "%"
                 ));
             }
-            if (filtros.containsKey("tipoDespesaId") && filtros.get("tipoDespesaId") != null) {
-                predicates.add(builder.equal(root.get("tipoDespesa").get("id"), filtros.get("tipoDespesaId")));
+            if (filtros.containsKey("subcategoriaId") && filtros.get("subcategoriaId") != null) {
+                predicates.add(builder.equal(root.get("subcategoria").get("id"), filtros.get("subcategoriaId")));
+            }
+            if (filtros.containsKey("categoriaId") && filtros.get("categoriaId") != null) {
+                predicates.add(builder.equal(root.get("subcategoria").get("categoria").get("id"), filtros.get("categoriaId")));
             }
             if (filtros.containsKey("classificacao") && filtros.get("classificacao") != null) {
                 predicates.add(builder.equal(root.get("classificacao"), filtros.get("classificacao").toString()));
@@ -55,6 +59,9 @@ public class LancamentoCartaoSpecification {
             if (filtros.containsKey("totalParcelas") && filtros.get("totalParcelas") != null) {
                 predicates.add(builder.equal(root.get("totalParcelas"), filtros.get("totalParcelas")));
             }
+            if (filtros.containsKey("mesAnoFatura") && filtros.get("mesAnoFatura") != null) {
+                predicates.add(builder.equal(root.get("mesAnoFatura"), filtros.get("mesAnoFatura")));
+            }
             if (filtros.containsKey("mesAnoFaturaList") && filtros.get("mesAnoFaturaList") != null) {
                 List<String> mesAnoList = (List<String>) filtros.get("mesAnoFaturaList");
                 if (!mesAnoList.isEmpty()) {
@@ -67,9 +74,20 @@ public class LancamentoCartaoSpecification {
             if (filtros.containsKey("proprietario") && filtros.get("proprietario") != null) {
                 predicates.add(builder.equal(root.get("proprietario"), filtros.get("proprietario")));
             }
-            if (filtros.containsKey("dataCompra") && filtros.get("dataCompra") != null) {
-                predicates.add(builder.equal(root.get("dataCompra"), filtros.get("dataCompra")));
+
+            if (filtros.containsKey("dataCompraInicial") && filtros.get("dataCompraInicial") != null &&
+                    filtros.containsKey("dataCompraFinal") && filtros.get("dataCompraFinal") != null) {
+                predicates.add(builder.between(root.get("dataCompra"),
+                        (LocalDate) filtros.get("dataCompraInicial"),
+                        (LocalDate) filtros.get("dataCompraFinal")));
+            } else if (filtros.containsKey("dataCompraInicial") && filtros.get("dataCompraInicial") != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.get("dataCompra"),
+                        (LocalDate) filtros.get("dataCompraInicial")));
+            } else if (filtros.containsKey("dataCompraFinal") && filtros.get("dataCompraFinal") != null) {
+                predicates.add(builder.lessThanOrEqualTo(root.get("dataCompra"),
+                        (LocalDate) filtros.get("dataCompraFinal")));
             }
+
             if (filtros.containsKey("dataRegistro") && filtros.get("dataRegistro") != null) {
                 predicates.add(builder.equal(root.get("dataRegistro"), filtros.get("dataRegistro")));
             }

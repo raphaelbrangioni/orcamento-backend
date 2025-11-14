@@ -46,10 +46,10 @@ public class RelatorioController {
     public ResponseEntity<List<Map<String, Object>>> getDespesasPorTipo(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
-            @RequestParam(required = false) Long tipoDespesaId) {
-        log.info("Requisição GET em /api/v1/relatorios/despesas-por-tipo com filtros: dataInicio={}, dataFim={}, tipoDespesaId={}",
-                dataInicio, dataFim, tipoDespesaId);
-        List<Map<String, Object>> relatorio = relatorioService.getDespesasPorTipo(dataInicio, dataFim, tipoDespesaId);
+            @RequestParam(required = false) Long subcategoriaId) {
+        log.info("Requisição GET em /api/v1/relatorios/despesas-por-tipo com filtros: dataInicio={}, dataFim={}, subcategoriaId={}",
+                dataInicio, dataFim, subcategoriaId);
+        List<Map<String, Object>> relatorio = relatorioService.getDespesasPorSubcategoria(dataInicio, dataFim, subcategoriaId);
         return ResponseEntity.ok(relatorio);
     }
 }

@@ -2,7 +2,11 @@
 package com.example.orcamento.service;
 
 import com.example.orcamento.dto.dashboard.FaturaCartaoAnualDTO;
+import com.example.orcamento.dto.dashboard.FaturaMensalDTO;
+import com.example.orcamento.model.CartaoCredito;
+import com.example.orcamento.model.CategoriaDespesa;
 import com.example.orcamento.model.LancamentoCartao;
+import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import com.example.orcamento.specification.LancamentoCartaoSpecification;
@@ -10,12 +14,14 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.example.orcamento.dto.CompraDTO;
+import com.example.orcamento.dto.LancamentoCartaoDetalhadoDTO;
+import com.example.orcamento.dto.LancamentoCartaoComCompraDTO;
+import com.example.orcamento.dto.CategoriaDespesaDTO;
+import com.example.orcamento.dto.SubcategoriaDespesaDTO;
 
 @Service
 @RequiredArgsConstructor
@@ -23,9 +29,11 @@ import java.util.stream.Collectors;
 public class LancamentoCartaoService {
     private final LancamentoCartaoRepository lancamentoCartaoRepository;
     private final CartaoCreditoRepository cartaoCreditoRepository;
+    private final DespesaService despesaService;
 
     public LancamentoCartao cadastrarLancamento(LancamentoCartao lancamento) {
         log.info("Lançamento a ser salvo: {}", lancamento);
+        lancamento.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
         validarLancamento(lancamento);
         return lancamentoCartaoRepository.save(lancamento);
     }
@@ -45,29 +53,85 @@ public class LancamentoCartaoService {
         return lancamentoCartaoRepository.findByTenantId(tenantId);
     }
 
+    public List<LancamentoCartaoComCompraDTO> listarLancamentosComCompra() {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByTenantId(tenantId);
+        return lancamentos.stream()
+                .map(this::toLancamentoCartaoComCompraDTO)
+                .collect(Collectors.toList());
+    }
+
+    private LancamentoCartaoComCompraDTO toLancamentoCartaoComCompraDTO(LancamentoCartao lancamento) {
+        LancamentoCartaoComCompraDTO.LancamentoCartaoComCompraDTOBuilder builder = LancamentoCartaoComCompraDTO.builder()
+                .id(lancamento.getId())
+                .descricao(lancamento.getDescricao())
+                .valorTotal(lancamento.getValorTotal())
+                .parcelaAtual(lancamento.getParcelaAtual())
+                .totalParcelas(lancamento.getTotalParcelas())
+                .dataCompra(lancamento.getDataCompra())
+                .detalhes(lancamento.getDetalhes())
+                .mesAnoFatura(lancamento.getMesAnoFatura())
+                .cartaoCreditoId(lancamento.getCartaoCredito() != null ? lancamento.getCartaoCredito().getId() : null)
+                .proprietario(lancamento.getProprietario())
+                .tenantId(lancamento.getTenantId())
+                .dataRegistro(lancamento.getDataRegistro() != null ? lancamento.getDataRegistro().toLocalDate() : null)
+                .pagoPorTerceiro(lancamento.getPagoPorTerceiro())
+                .classificacao(lancamento.getClassificacao() != null ? lancamento.getClassificacao().name() : null)
+                .variabilidade(lancamento.getVariabilidade() != null ? lancamento.getVariabilidade().name() : null);
+
+        if (lancamento.getSubcategoria() != null) {
+            SubcategoriaDespesa subcat = lancamento.getSubcategoria();
+            if (subcat.getCategoria() != null) {
+                CategoriaDespesa cat = subcat.getCategoria();
+                builder.categoria(new CategoriaDespesaDTO(cat.getId(), cat.getNome(), new SubcategoriaDespesaDTO(subcat.getId(), subcat.getNome())));
+            }
+        }
+
+        if (lancamento.getCompra() != null) {
+            builder.compra(new CompraDTO(lancamento.getCompra()));
+        }
+
+        return builder.build();
+    }
+
     public void excluirLancamento(Long id) {
         lancamentoCartaoRepository.deleteById(id);
     }
 
+    @Transactional
     public LancamentoCartao atualizarLancamento(Long id, LancamentoCartao lancamentoAtualizado) {
-        LancamentoCartao lancamento = lancamentoCartaoRepository.findById(id)
+        LancamentoCartao lancamentoExistente = lancamentoCartaoRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Lançamento com ID " + id + " não encontrado."));
-        lancamento.setDescricao(lancamentoAtualizado.getDescricao());
-        lancamento.setValorTotal(lancamentoAtualizado.getValorTotal());
-        lancamento.setParcelaAtual(lancamentoAtualizado.getParcelaAtual());
-        lancamento.setTotalParcelas(lancamentoAtualizado.getTotalParcelas());
-        lancamento.setDataCompra(lancamentoAtualizado.getDataCompra());
-        lancamento.setDetalhes(lancamentoAtualizado.getDetalhes());
-        lancamento.setMesAnoFatura(lancamentoAtualizado.getMesAnoFatura());
-        lancamento.setTipoDespesa(lancamentoAtualizado.getTipoDespesa());
-        lancamento.setPagoPorTerceiro(lancamentoAtualizado.getPagoPorTerceiro());
-        lancamento.setClassificacao(lancamentoAtualizado.getClassificacao());
-        lancamento.setVariabilidade(lancamentoAtualizado.getVariabilidade());
-        lancamento.setProprietario(lancamentoAtualizado.getProprietario());
-        lancamento.setCartaoCredito(cartaoCreditoRepository.findById(lancamentoAtualizado.getCartaoCredito().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Cartão de crédito com ID " + lancamentoAtualizado.getCartaoCredito().getId() + " não encontrado.")));
-        validarLancamento(lancamento);
-        return lancamentoCartaoRepository.save(lancamento);
+
+        // Atualiza apenas os campos que podem ser modificados
+        lancamentoExistente.setDescricao(lancamentoAtualizado.getDescricao());
+        lancamentoExistente.setValorTotal(lancamentoAtualizado.getValorTotal());
+        lancamentoExistente.setProprietario(lancamentoAtualizado.getProprietario());
+        lancamentoExistente.setMesAnoFatura(lancamentoAtualizado.getMesAnoFatura());
+        lancamentoExistente.setDataRegistro(lancamentoAtualizado.getDataRegistro());
+        lancamentoExistente.setPagoPorTerceiro(lancamentoAtualizado.getPagoPorTerceiro());
+        lancamentoExistente.setDetalhes(lancamentoAtualizado.getDetalhes());
+
+        if (lancamentoAtualizado.getSubcategoria() != null) {
+            lancamentoExistente.setSubcategoria(lancamentoAtualizado.getSubcategoria());
+        }
+
+        if (lancamentoAtualizado.getClassificacao() != null) {
+            lancamentoExistente.setClassificacao(lancamentoAtualizado.getClassificacao());
+        }
+
+        // Se um novo cartão de crédito for fornecido, atualiza a associação
+        if (lancamentoAtualizado.getCartaoCredito() != null && lancamentoAtualizado.getCartaoCredito().getId() != null) {
+            CartaoCredito novoCartao = cartaoCreditoRepository.findById(lancamentoAtualizado.getCartaoCredito().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Cartão de crédito com ID " + lancamentoAtualizado.getCartaoCredito().getId() + " não encontrado."));
+            lancamentoExistente.setCartaoCredito(novoCartao);
+        }
+
+        // As informações de parcela não devem ser alteradas em uma atualização simples.
+        // Se for necessário, um método específico para isso deve ser criado.
+
+        validarLancamento(lancamentoExistente);
+        return lancamentoCartaoRepository.save(lancamentoExistente);
     }
 
     private void validarLancamento(LancamentoCartao lancamento) {
@@ -99,27 +163,38 @@ public class LancamentoCartaoService {
                     FaturaCartaoAnualDTO dto = new FaturaCartaoAnualDTO();
                     dto.setCartaoId(cartaoId);
 
-                    // Usar LinkedHashMap para garantir a ordem dos meses
-                    Map<String, BigDecimal> faturasPorMes = new LinkedHashMap<>();
-                    List<String> mesesOrdenados = List.of(
-                            "JANEIRO", "FEVEREIRO", "MARCO", "ABRIL", "MAIO",
-                            "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO",
-                            "NOVEMBRO", "DEZEMBRO"
-                    );
+                    var cartao = cartaoCreditoRepository.findById(cartaoId).orElse(null);
+                    if (cartao == null) return null; // Ou lança uma exceção
 
-                    // Preenchendo o mapa com os meses na ordem fixa
-                    for (String mes : mesesOrdenados) {
-                        String mesAnoFatura = mes + "/" + ano;
+                    Map<String, FaturaMensalDTO> faturasPorMes = new LinkedHashMap<>();
+                    for (int mesNum = 1; mesNum <= 12; mesNum++) {
+                        String mesNome = mesParaString(mesNum);
+                        String mesAnoFatura = mesNome + "/" + ano;
                         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+
                         BigDecimal valorFatura = lancamentoCartaoRepository
                                 .getFaturaDoMes(cartaoId, mesAnoFatura, tenantId);
 
-                        faturasPorMes.put(mes, valorFatura != null ? valorFatura : BigDecimal.ZERO);
+                        BigDecimal valorTerceiros = lancamentoCartaoRepository
+                                .getFaturaDoMesTerceiros(cartaoId, mesAnoFatura, tenantId);
+
+                        //log.info("Cartão: {}, Mes: {}, Fatura: {}", cartao.getNome(), mesNum, ano);
+
+                        boolean faturaLancada = despesaService.verificarFaturaLancada(cartao.getNome(), mesNum, ano);
+
+                        com.example.orcamento.dto.dashboard.FaturaMensalDTO faturaMensalDTO = new com.example.orcamento.dto.dashboard.FaturaMensalDTO(
+                                valorFatura != null ? valorFatura : BigDecimal.ZERO,
+                                faturaLancada,
+                                valorTerceiros != null ? valorTerceiros : BigDecimal.ZERO
+                        );
+
+                        faturasPorMes.put(mesNome, faturaMensalDTO);
                     }
 
                     dto.setFaturasPorMes(faturasPorMes);
                     return dto;
                 })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -140,7 +215,6 @@ public class LancamentoCartaoService {
             default -> "DESCONHECIDO";
         };
     }
-
 
     public List<LancamentoCartao> listarLancamentosPorFiltros(Long cartaoId, String mesAnoFatura) {
         log.info("Buscando lançamentos com filtros - cartaoId: {}, mesAnoFatura: {}", cartaoId, mesAnoFatura);
@@ -163,112 +237,49 @@ public class LancamentoCartaoService {
         }
     }
 
-//    // Novo método para listar lançamentos com proprietario = "Terceiros"
-//    public List<LancamentoCartao> listarLancamentosTerceiros() {
-//        log.info("Buscando lançamentos com proprietario = Terceiros");
-//        return lancamentoCartaoRepository.findByProprietario("Terceiros");
-//    }
-
-    // Método atualizado para incluir filtro opcional mesAnoFatura
     public List<LancamentoCartao> listarLancamentosTerceiros(String mesAnoFatura) {
-        log.info("Buscando lançamentos com proprietario = Terceiros e mesAnoFatura = {}", mesAnoFatura);
+        log.info("Buscando lançamentos de terceiros com filtro mesAnoFatura: {}", mesAnoFatura);
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        return lancamentoCartaoRepository.findByProprietarioAndMesAnoFatura("Terceiros", mesAnoFatura, tenantId);
+        if (mesAnoFatura != null && !mesAnoFatura.trim().isEmpty()) {
+            return lancamentoCartaoRepository.findByProprietarioAndMesAnoFaturaAndTenantId("Terceiros", mesAnoFatura, tenantId);
+        } else {
+            return lancamentoCartaoRepository.findByProprietarioAndTenantId("Terceiros", tenantId);
+        }
     }
-
-//    // Novo método para filtro dinâmico
-//    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
-//        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
-//        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtros));
-//    }
-
-//    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
-//        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
-//        // Mapeia nomes de campos do DTO para os da entidade
-//        Map<String, Object> filtrosMapeados = new HashMap<>();
-//        filtros.forEach((key, value) -> {
-//            switch (key) {
-//                case "descricao" -> filtrosMapeados.put("descricao", value);
-//                case "valor" -> filtrosMapeados.put("valorTotal", value);
-//                case "dataReferencia" -> filtrosMapeados.put("dataCompra", value);
-//                case "parcela" -> filtrosMapeados.put("parcelaAtual", value);
-//                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
-//                default -> filtrosMapeados.put(key, value); // Campos como id, detalhes, classificacao, variabilidade, totalParcelas são iguais
-//            }
-//        });
-//        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtrosMapeados));
-//    }
-
-//    public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
-//        log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
-//        // Mapeia nomes de campos do DTO para os da entidade
-//        Map<String, Object> filtrosMapeados = new HashMap<>();
-//        filtros.forEach((key, value) -> {
-//            switch (key) {
-//                case "descricao" -> filtrosMapeados.put("descricao", value);
-//                case "valor" -> filtrosMapeados.put("valorTotal", value);
-//                case "dataReferencia" -> filtrosMapeados.put("mesAnoFatura", value); // Mapeia para mesAnoFatura
-//                case "parcela" -> filtrosMapeados.put("parcelaAtual", value);
-//                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
-//                default -> filtrosMapeados.put(key, value); // Campos como id, detalhes, classificacao, variabilidade, totalParcelas
-//            }
-//        });
-//        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtrosMapeados));
-//    }
 
     public List<LancamentoCartao> listarLancamentosPorFiltrosDinamicos(Map<String, Object> filtros) {
         log.info("Buscando lançamentos com filtros dinâmicos: {}", filtros);
-        Map<String, Object> filtrosMapeados = new HashMap<>();
-        filtros.forEach((key, value) -> {
-            switch (key) {
-                case "descricao" -> filtrosMapeados.put("descricao", value);
-                case "valor" -> filtrosMapeados.put("valorTotal", value);
-                case "parcela" -> filtrosMapeados.put("parcelaAtual", value);
-                case "tipoDespesaId" -> filtrosMapeados.put("tipoDespesaId", value);
-                case "dataInicio" -> {
-                    if (value != null && filtros.containsKey("dataFim")) {
-                        List<String> mesesAnos = generateMesAnoList(
-                                value.toString(),
-                                filtros.get("dataFim").toString()
-                        );
-                        filtrosMapeados.put("mesAnoFaturaList", mesesAnos);
-                    }
-                }
-                case "dataFim" -> {} // Ignorado, tratado junto com dataInicio
-                default -> filtrosMapeados.put(key, value); // id, detalhes, classificacao, variabilidade, totalParcelas
-            }
-        });
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        filtros.put("tenantId", tenantId);
 
-        // Garante que mesAnoFatura simples também vira lista para o filtro funcionar
-        if (filtros.containsKey("mesAnoFatura") && filtros.get("mesAnoFatura") != null && !filtrosMapeados.containsKey("mesAnoFaturaList")) {
-            List<String> lista = new ArrayList<>();
-            lista.add(filtros.get("mesAnoFatura").toString());
-            filtrosMapeados.put("mesAnoFaturaList", lista);
-        }
-        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtrosMapeados));
+        return lancamentoCartaoRepository.findAll(LancamentoCartaoSpecification.comFiltros(filtros));
     }
 
-    // Método auxiliar para gerar lista de MES/ANO no intervalo
-    private List<String> generateMesAnoList(String dataInicio, String dataFim) {
-        try {
-            LocalDate inicio = LocalDate.parse(dataInicio, DateTimeFormatter.ISO_LOCAL_DATE);
-            LocalDate fim = LocalDate.parse(dataFim, DateTimeFormatter.ISO_LOCAL_DATE);
-            List<String> mesesAnos = new ArrayList<>();
-            String[] meses = {
-                    "JANEIRO", "FEVEREIRO", "MARCO", "ABRIL", "MAIO", "JUNHO",
-                    "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
-            };
+    public LancamentoCartaoDetalhadoDTO buscarLancamentoComCompra(Long id) {
+        LancamentoCartao lancamento = lancamentoCartaoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Lançamento com ID " + id + " não encontrado."));
 
-            while (!inicio.isAfter(fim)) {
-                String mesAno = meses[inicio.getMonthValue() - 1] + "/" + inicio.getYear();
-                mesesAnos.add(mesAno);
-                inicio = inicio.plusMonths(1);
-            }
-            return mesesAnos;
-        } catch (Exception e) {
-            log.warn("Formato inválido para dataInicio: {} ou dataFim: {}. Retornando lista vazia.", dataInicio, dataFim);
-            return List.of();
+        LancamentoCartaoDetalhadoDTO.LancamentoCartaoDetalhadoDTOBuilder builder = LancamentoCartaoDetalhadoDTO.builder()
+                .id(lancamento.getId())
+                .descricao(lancamento.getDescricao())
+                .valorTotal(lancamento.getValorTotal())
+                .parcelaAtual(lancamento.getParcelaAtual())
+                .totalParcelas(lancamento.getTotalParcelas())
+                .dataCompra(lancamento.getDataCompra())
+                .detalhes(lancamento.getDetalhes())
+                .mesAnoFatura(lancamento.getMesAnoFatura())
+                .cartaoCreditoId(lancamento.getCartaoCredito() != null ? lancamento.getCartaoCredito().getId() : null)
+                .proprietario(lancamento.getProprietario())
+                .tenantId(lancamento.getTenantId())
+                .dataRegistro(lancamento.getDataRegistro() != null ? lancamento.getDataRegistro().toLocalDate() : null)
+                .pagoPorTerceiro(lancamento.getPagoPorTerceiro())
+                .classificacao(lancamento.getClassificacao() != null ? lancamento.getClassificacao().name() : null)
+                .variabilidade(lancamento.getVariabilidade() != null ? lancamento.getVariabilidade().name() : null);
+
+        if (lancamento.getCompra() != null) {
+            builder.compra(new CompraDTO(lancamento.getCompra()));
         }
-    }
 
+        return builder.build();
+    }
 }

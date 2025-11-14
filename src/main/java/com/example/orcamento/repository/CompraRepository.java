@@ -11,13 +11,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CompraRepository extends JpaRepository<Compra, Long> {
 
-    @Query("SELECT c FROM Compra c WHERE c.tenantId = :tenantId AND (:descricao IS NULL OR LOWER(c.descricao) LIKE LOWER(CONCAT('%', :descricao, '%'))) AND (:cartaoId IS NULL OR c.cartaoCredito.id = :cartaoId) AND (:tipoDespesaId IS NULL OR c.tipoDespesa.id = :tipoDespesaId)")
-    Page<Compra> findByFilters(
-            @Param("descricao") String descricao,
-            @Param("cartaoId") Long cartaoId,
-            @Param("tipoDespesaId") Long tipoDespesaId,
-            @Param("tenantId") String tenantId,
-            Pageable pageable);
+    @Query("SELECT c FROM Compra c WHERE c.tenantId = :tenantId AND (:subcategoriaId IS NULL OR c.subcategoria.id = :subcategoriaId)")
+    Page<Compra> findByTenantIdAndSubcategoriaId(@Param("tenantId") String tenantId, @Param("subcategoriaId") Long subcategoriaId, Pageable pageable);
+
+    Page<Compra> findByTenantId(String tenantId, Pageable pageable);
 
     @Query("SELECT c FROM Compra c WHERE c.tenantId = :tenantId ORDER BY c.id DESC")
     Page<Compra> findUltimasComprasByTenant(@Param("tenantId") String tenantId, Pageable pageable);

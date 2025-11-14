@@ -41,8 +41,11 @@ public class DespesaSpecification {
                         "%" + filtros.get("detalhes").toString().toLowerCase() + "%"
                 ));
             }
-            if (filtros.containsKey("tipoDespesaId") && filtros.get("tipoDespesaId") != null) {
-                predicates.add(builder.equal(root.get("tipo").get("id"), filtros.get("tipoDespesaId")));
+            if (filtros.containsKey("subcategoriaId") && filtros.get("subcategoriaId") != null) {
+                predicates.add(builder.equal(root.get("subcategoria").get("id"), filtros.get("subcategoriaId")));
+            }
+            if (filtros.containsKey("categoriaId") && filtros.get("categoriaId") != null) {
+                predicates.add(builder.equal(root.get("subcategoria").get("categoria").get("id"), filtros.get("categoriaId")));
             }
             if (filtros.containsKey("classificacao") && filtros.get("classificacao") != null) {
                 predicates.add(builder.equal(root.get("classificacao"), filtros.get("classificacao").toString()));
@@ -64,6 +67,13 @@ public class DespesaSpecification {
                         root.get("dataVencimento"),
                         LocalDate.parse(filtros.get("dataVencimentoFim").toString())
                 ));
+            }
+            if (filtros.containsKey("formaDePagamento") && filtros.get("formaDePagamento") != null) {
+                predicates.add(builder.equal(root.get("formaDePagamento").as(String.class), filtros.get("formaDePagamento").toString()));
+            }
+
+            if (filtros.containsKey("metaEconomiaId") && filtros.get("metaEconomiaId") != null) {
+                predicates.add(builder.equal(root.get("metaEconomia").get("id"), filtros.get("metaEconomiaId")));
             }
 
             return builder.and(predicates.toArray(new Predicate[0]));

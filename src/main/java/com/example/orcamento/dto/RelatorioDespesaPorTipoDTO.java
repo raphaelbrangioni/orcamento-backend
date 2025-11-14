@@ -4,14 +4,14 @@ import lombok.Data;
 
 @Data
 public class RelatorioDespesaPorTipoDTO {
-    private Long tipoDespesaId;
-    private String tipoDespesaNome;
+    private Long subcategoriaId;
+    private String subcategoriaNome;
     private Double totalDespesa;
     private Long quantidadeLancamentos;
 
-    public RelatorioDespesaPorTipoDTO(Long tipoDespesaId, String tipoDespesaNome, Double totalDespesa, Long quantidadeLancamentos) {
-        this.tipoDespesaId = tipoDespesaId;
-        this.tipoDespesaNome = tipoDespesaNome;
+    public RelatorioDespesaPorTipoDTO(Long subcategoriaId, String subcategoriaNome, Double totalDespesa, Long quantidadeLancamentos) {
+        this.subcategoriaId = subcategoriaId;
+        this.subcategoriaNome = subcategoriaNome;
         this.totalDespesa = totalDespesa;
         this.quantidadeLancamentos = quantidadeLancamentos;
     }

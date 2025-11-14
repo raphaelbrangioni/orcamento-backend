@@ -1,6 +1,7 @@
 package com.example.orcamento.dto;
 
 import com.example.orcamento.model.Despesa;
+import com.example.orcamento.model.enums.FormaDePagamento;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,7 +20,9 @@ public class DespesaDTO {
     private LocalDate dataPagamento;
     private Integer parcela;
     private String detalhes;
-    private String tipoNome;
+    private Long subcategoriaId;
+    private String subcategoriaNome;
+    private FormaDePagamento formaDePagamento;
 
     public DespesaDTO(Despesa despesa) {
         this.id = despesa.getId();
@@ -30,7 +33,10 @@ public class DespesaDTO {
         this.dataPagamento = despesa.getDataPagamento();
         this.parcela = despesa.getParcela();
         this.detalhes = despesa.getDetalhes();
-        this.tipoNome = despesa.getTipo() != null ? despesa.getTipo().getNome() : null;
+        this.formaDePagamento = despesa.getFormaDePagamento();
+        if (despesa.getSubcategoria() != null) {
+            this.subcategoriaId = despesa.getSubcategoria().getId();
+            this.subcategoriaNome = despesa.getSubcategoria().getNome();
+        }
     }
 }
-

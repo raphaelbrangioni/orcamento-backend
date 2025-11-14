@@ -22,15 +22,23 @@ public class AnaliseFinanceiraService {
     @Autowired
     private DespesaRepository despesaRepository;
 
-    public List<GastoRecorrenteDTO> analisarGastosRecorrentes() {
-        // Busca despesas dos últimos 6 meses
-        LocalDate dataInicial = LocalDate.now().minusMonths(6);
+    public List<GastoRecorrenteDTO> analisarGastosRecorrentes(Integer periodo, Long categoriaId) {
+        // Define o período de análise, com 6 meses como padrão
+        LocalDate dataInicial = LocalDate.now().minusMonths(periodo != null ? periodo : 6);
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         List<Despesa> despesas = despesaRepository.findDespesasParaAnalise(tenantId, dataInicial);
 
-        // Agrupa por nome e tipo
+        // Filtra por categoria, se especificado
+        if (categoriaId != null) {
+            despesas = despesas.stream()
+                    .filter(d -> d.getSubcategoria() != null && d.getSubcategoria().getCategoria() != null &&
+                            categoriaId.equals(d.getSubcategoria().getCategoria().getId()))
+                    .collect(Collectors.toList());
+        }
+
+        // Agrupa por nome e subcategoria
         Map<String, List<Despesa>> despesasAgrupadas = despesas.stream()
-                .collect(Collectors.groupingBy(d -> d.getNome() + "#" + d.getTipo().getNome()));
+                .collect(Collectors.groupingBy(d -> d.getNome() + "#" + (d.getSubcategoria() != null ? d.getSubcategoria().getNome() : "SEM_SUBCATEGORIA")));
 
         List<GastoRecorrenteDTO> gastosRecorrentes = new ArrayList<>();
 
@@ -67,18 +75,26 @@ public class AnaliseFinanceiraService {
         return gastosRecorrentes;
     }
 
-    public List<SugestaoEconomiaDTO> gerarSugestoes() {
+    public List<SugestaoEconomiaDTO> gerarSugestoes(Integer periodo, Long categoriaId) {
         List<SugestaoEconomiaDTO> sugestoes = new ArrayList<>();
         AtomicLong idCounter = new AtomicLong(1);
 
-        // Analisa variações por categoria nos últimos 3 meses
-        LocalDate dataInicial = LocalDate.now().minusMonths(3);
+        // Analisa variações por categoria, com período padrão de 3 meses
+        LocalDate dataInicial = LocalDate.now().minusMonths(periodo != null ? periodo : 3);
         LocalDate dataFinal = LocalDate.now();
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         List<Despesa> despesas = despesaRepository.findByDataVencimentoBetween(tenantId, dataInicial, dataFinal);
 
+        // Filtra por categoria, se especificado
+        if (categoriaId != null) {
+            despesas = despesas.stream()
+                    .filter(d -> d.getSubcategoria() != null && d.getSubcategoria().getCategoria() != null &&
+                            categoriaId.equals(d.getSubcategoria().getCategoria().getId()))
+                    .collect(Collectors.toList());
+        }
+
         Map<String, List<Despesa>> despesasPorCategoria = despesas.stream()
-                .collect(Collectors.groupingBy(d -> d.getTipo().getNome()));
+                .collect(Collectors.groupingBy(d -> d.getSubcategoria() != null ? d.getSubcategoria().getNome() : "SEM_SUBCATEGORIA"));
 
         // Calcula total geral para referência
         BigDecimal totalGeral = despesas.stream()
@@ -191,17 +207,25 @@ public class AnaliseFinanceiraService {
         return sugestoes;
     }
 
-    public List<PrevisaoGastoDTO> gerarPrevisoes() {
+    public List<PrevisaoGastoDTO> gerarPrevisoes(Integer periodo, Long categoriaId) {
         List<PrevisaoGastoDTO> previsoes = new ArrayList<>();
 
-        // Analisa últimos 3 meses para fazer previsão
-        LocalDate dataInicial = LocalDate.now().minusMonths(3);
+        // Analisa últimos meses para fazer previsão, com período padrão de 3 meses
+        LocalDate dataInicial = LocalDate.now().minusMonths(periodo != null ? periodo : 3);
         LocalDate dataFinal = LocalDate.now();
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         List<Despesa> despesas = despesaRepository.findByDataVencimentoBetween(tenantId, dataInicial, dataFinal);
 
+        // Filtra por categoria, se especificado
+        if (categoriaId != null) {
+            despesas = despesas.stream()
+                    .filter(d -> d.getSubcategoria() != null && d.getSubcategoria().getCategoria() != null &&
+                            categoriaId.equals(d.getSubcategoria().getCategoria().getId()))
+                    .collect(Collectors.toList());
+        }
+
         Map<String, List<Despesa>> despesasPorCategoria = despesas.stream()
-                .collect(Collectors.groupingBy(d -> d.getTipo().getNome()));
+                .collect(Collectors.groupingBy(d -> d.getSubcategoria() != null ? d.getSubcategoria().getNome() : "SEM_SUBCATEGORIA"));
 
         despesasPorCategoria.forEach((categoria, lista) -> {
             Map<YearMonth, BigDecimal> totalPorMes = lista.stream()
