@@ -1,0 +1,136 @@
+name: Frontend CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'frontend/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/frontend-ci-cd.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: rbrangioni
+  IMAGE_NAME: orcamento-frontend
+  KUBE_NAMESPACE: orcamento
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: 🧪 Tests & Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔍 Run linting
+      run: npm run lint
+      
+    - name: 🧪 Run unit tests
+      run: npm run test:unit
+      
+    - name: 🏗️ Build application
+      run: npm run build
+      
+    - name: 📊 Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-files
+        path: dist/
+
+  build:
+    name: 🏗️ Build & Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📊 Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist-files
+        path: dist/
+        
+    - name: 🏷️ Generate version
+      id: version
+      run: |
+        VERSION=$(date +%Y%m%d)-${GITHUB_SHA:0:7}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Generated version: $VERSION"
+        
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: 🏗️ Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+          ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: 🚀 Deploy to Kubernetes
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        VERSION: ${{ steps.version.outputs.VERSION }}
+      run: |
+        # Setup kubectl
+        mkdir -p ~/.kube
+        echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+        
+        # Update deployment with new image
+        kubectl set image deployment/orcamento-frontend \
+          orcamento-frontend=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:$VERSION \
+          -n $KUBE_NAMESPACE
+          
+        # Wait for rollout to complete
+        kubectl rollout status deployment/orcamento-frontend -n $KUBE_NAMESPACE --timeout=300s
+        
+        # Verify deployment
+        kubectl get pods -n $KUBE_NAMESPACE -l app=orcamento-frontend
+        
+    - name: 📢 Deployment notification
+      if: success()
+      run: |
+        echo "✅ Frontend deployed successfully!"
+        echo "🏷️ Version: ${{ steps.version.outputs.VERSION }}"
+        echo "🌐 URL: http://orcamento.local"
+        
+    - name: 🚨 Failure notification
+      if: failure()
+      run: |
+        echo "❌ Frontend deployment failed!"
+        echo "🔍 Check the logs above for details"

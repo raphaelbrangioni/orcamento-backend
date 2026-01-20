@@ -1,0 +1,125 @@
+name: 🚀 Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.8)'
+        required: true
+        type: string
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: rbrangioni
+  KUBE_NAMESPACE: orcamento
+
+jobs:
+  create-release:
+    name: 📦 Create Release
+    runs-on: ubuntu-latest
+    
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: 🏷️ Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
+        
+    - name: 📝 Generate changelog
+      id: changelog
+      run: |
+        # Get commits since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -z "$LAST_TAG" ]; then
+          COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+        else
+          COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+        fi
+        
+        # Create changelog
+        cat > CHANGELOG.md << EOF
+        # 🚀 Release ${{ steps.version.outputs.VERSION }}
+        
+        ## 📋 Changes
+        $COMMITS
+        
+        ## 🐳 Docker Images
+        - Backend: \`rbrangioni/orcamento-backend:${{ steps.version.outputs.VERSION }}\`
+        - Frontend: \`rbrangioni/orcamento-frontend:${{ steps.version.outputs.VERSION }}\`
+        
+        ## 🌐 Deployment
+        - Frontend: http://orcamento.local
+        - Backend API: http://api.orcamento.local
+        EOF
+        
+    - name: 🎉 Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        release_name: Release ${{ steps.version.outputs.VERSION }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: false
+
+  deploy-production:
+    name: 🚀 Deploy to Production
+    needs: create-release
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Setup Kubernetes
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      run: |
+        mkdir -p ~/.kube
+        echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+        
+    - name: 🚀 Deploy Backend
+      run: |
+        helm upgrade --install orcamento-backend ./helm-charts/orcamento-backend \
+          --namespace $KUBE_NAMESPACE \
+          --values values-orcamento.yaml \
+          --set image.tag=${{ needs.create-release.outputs.version }} \
+          --wait --timeout=600s
+          
+    - name: 🚀 Deploy Frontend
+      run: |
+        kubectl set image deployment/orcamento-frontend \
+          orcamento-frontend=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/orcamento-frontend:${{ needs.create-release.outputs.version }} \
+          -n $KUBE_NAMESPACE
+          
+        kubectl rollout status deployment/orcamento-frontend -n $KUBE_NAMESPACE --timeout=600s
+        
+    - name: ✅ Verify Deployment
+      run: |
+        echo "🔍 Checking deployment status..."
+        kubectl get pods -n $KUBE_NAMESPACE
+        kubectl get services -n $KUBE_NAMESPACE
+        kubectl get ingress -n $KUBE_NAMESPACE
+        
+        echo "✅ Production deployment completed!"
+        echo "🏷️ Version: ${{ needs.create-release.outputs.version }}"
+        echo "🌐 Frontend: http://orcamento.local"
+        echo "🌐 Backend: http://api.orcamento.local"

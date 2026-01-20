@@ -1,0 +1,62 @@
+# Valores para ambiente de produção
+replicaCount: 2
+
+image:
+  repository: rbrangioni/orcamento-backend
+  tag: "1.0.6"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+app:
+  database:
+    host: mysql-external.orcamento.svc.cluster.local
+    port: 3306
+    name: orcamento_prod
+    username: root
+    password: admin.2011
+    
+  cors:
+    allowedOrigins: "https://orcamento.com.br"
+    
+  jwt:
+    expirationMs: 1800000  # 30 minutos
+    
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: noreplay.meuorcamento@gmail.com
+    password: eivo ottt pjzn vsdb
+    from: noreplay.meuorcamento@gmail.com
+
+# Health checks robustos para produção
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 90
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+# Autoscaling para produção
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70

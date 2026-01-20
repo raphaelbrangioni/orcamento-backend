@@ -10,6 +10,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins(
+                    "http://orcamento.local",
                     "http://localhost:8080",
                     "http://ec2-54-165-250-15.compute-1.amazonaws.com:8080"
                 )

@@ -1,0 +1,1 @@
+[02/01/2026 09:02:14.580 -03] [tenantId=] [---- traceId -----              ] [HikariPool-1 housekeeper         ] [WARN ] [com.zaxxer.hikari.pool.HikariPool                                     ] HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=8h23m34s360ms613µs200ns). 

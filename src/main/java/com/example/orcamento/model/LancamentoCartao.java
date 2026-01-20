@@ -3,6 +3,7 @@ package com.example.orcamento.model;
 import com.example.orcamento.config.json.CustomLocalDateTimeDeserializer;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -61,6 +62,7 @@ public class LancamentoCartao {
 
     @ManyToOne
     @JoinColumn(name = "compra_id")
+    @JsonIgnoreProperties({"terceiros", "parcelas"})
     private Compra compra; // Referência à compra original
 
     // Getters e setters

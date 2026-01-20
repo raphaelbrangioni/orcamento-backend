@@ -1,0 +1,92 @@
+name: 🏥 Health Check & Monitoring
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+env:
+  KUBE_NAMESPACE: orcamento
+
+jobs:
+  health-check:
+    name: 🔍 Application Health Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔐 Setup Kubernetes
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      run: |
+        mkdir -p ~/.kube
+        echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+        
+    - name: 🏥 Check Backend Health
+      id: backend-health
+      run: |
+        # Check if backend pods are running
+        BACKEND_PODS=$(kubectl get pods -n $KUBE_NAMESPACE -l app=orcamento-backend --no-headers | wc -l)
+        BACKEND_READY=$(kubectl get pods -n $KUBE_NAMESPACE -l app=orcamento-backend --no-headers | grep "Running" | wc -l)
+        
+        echo "Backend pods: $BACKEND_PODS"
+        echo "Backend ready: $BACKEND_READY"
+        
+        if [ "$BACKEND_READY" -eq 0 ]; then
+          echo "❌ Backend is not healthy!"
+          echo "BACKEND_STATUS=unhealthy" >> $GITHUB_OUTPUT
+          kubectl describe pods -n $KUBE_NAMESPACE -l app=orcamento-backend
+        else
+          echo "✅ Backend is healthy!"
+          echo "BACKEND_STATUS=healthy" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: 🏥 Check Frontend Health
+      id: frontend-health
+      run: |
+        # Check if frontend pods are running
+        FRONTEND_PODS=$(kubectl get pods -n $KUBE_NAMESPACE -l app=orcamento-frontend --no-headers | wc -l)
+        FRONTEND_READY=$(kubectl get pods -n $KUBE_NAMESPACE -l app=orcamento-frontend --no-headers | grep "Running" | wc -l)
+        
+        echo "Frontend pods: $FRONTEND_PODS"
+        echo "Frontend ready: $FRONTEND_READY"
+        
+        if [ "$FRONTEND_READY" -eq 0 ]; then
+          echo "❌ Frontend is not healthy!"
+          echo "FRONTEND_STATUS=unhealthy" >> $GITHUB_OUTPUT
+          kubectl describe pods -n $KUBE_NAMESPACE -l app=orcamento-frontend
+        else
+          echo "✅ Frontend is healthy!"
+          echo "FRONTEND_STATUS=healthy" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: 🌐 Check Ingress Status
+      run: |
+        echo "🔍 Checking Ingress status..."
+        kubectl get ingress -n $KUBE_NAMESPACE
+        kubectl describe ingress -n $KUBE_NAMESPACE
+        
+    - name: 📊 Resource Usage
+      run: |
+        echo "📊 Resource usage:"
+        kubectl top pods -n $KUBE_NAMESPACE || echo "Metrics server not available"
+        kubectl get pods -n $KUBE_NAMESPACE -o wide
+        
+    - name: 🚨 Alert on Failure
+      if: steps.backend-health.outputs.BACKEND_STATUS == 'unhealthy' || steps.frontend-health.outputs.FRONTEND_STATUS == 'unhealthy'
+      run: |
+        echo "🚨 ALERT: Application health check failed!"
+        echo "Backend status: ${{ steps.backend-health.outputs.BACKEND_STATUS }}"
+        echo "Frontend status: ${{ steps.frontend-health.outputs.FRONTEND_STATUS }}"
+        
+        # Here you could add notifications to Slack, email, etc.
+        # For now, we'll just fail the job to create a visible alert
+        exit 1
+        
+    - name: ✅ Health Check Summary
+      if: success()
+      run: |
+        echo "✅ All systems healthy!"
+        echo "🏷️ Timestamp: $(date)"
+        echo "🌐 Frontend: http://orcamento.local"
+        echo "🌐 Backend: http://api.orcamento.local"

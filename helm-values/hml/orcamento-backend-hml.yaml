@@ -1,0 +1,55 @@
+# Valores para ambiente de homologação
+replicaCount: 1
+
+image:
+  repository: rbrangioni/orcamento-backend
+  tag: "1.0.6"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+app:
+  database:
+    host: mysql-external.orcamento.svc.cluster.local
+    port: 3306
+    name: orcamento
+    username: root
+    password: admin.2011
+    
+  cors:
+    allowedOrigins: "http://orcamento.local"
+    
+  jwt:
+    expirationMs: 1800000  # 30 minutos
+    
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: noreplay.meuorcamento@gmail.com
+    password: eivo ottt pjzn vsdb
+    from: noreplay.meuorcamento@gmail.com
+
+# Health checks otimizados para produção
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 45
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3

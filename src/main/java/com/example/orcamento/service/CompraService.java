@@ -1,13 +1,13 @@
 // src/main/java/com/example/orcamento/service/CompraService.java
 package com.example.orcamento.service;
 
-import com.example.orcamento.dto.CompraDTO;
 import com.example.orcamento.model.Compra;
 import com.example.orcamento.model.LancamentoCartao;
 import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import com.example.orcamento.repository.CompraRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
+import com.example.orcamento.repository.PessoaRepository;
 import com.example.orcamento.repository.SubcategoriaDespesaRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +31,7 @@ public class CompraService {
     private final LancamentoCartaoRepository lancamentoCartaoRepository;
     private final SubcategoriaDespesaRepository subcategoriaDespesaRepository;
     private final CartaoCreditoRepository cartaoCreditoRepository;
+    private final PessoaRepository pessoaRepository;
 
     @Transactional
     public Compra cadastrarCompraParcelada(Compra compra, String mesPrimeiraParcela, Integer numeroParcelas) {
@@ -86,9 +87,16 @@ public class CompraService {
         BigDecimal valorTotal = compra.getValorTotal();
         BigDecimal valorParcela = valorTotal.divide(BigDecimal.valueOf(numeroParcelas), 2, BigDecimal.ROUND_HALF_UP);
 
+        int mesCompraIndex = compra.getDataCompra().getMonthValue() - 1;
+        int anoPrimeiraParcela = compra.getDataCompra().getYear();
+        if (indiceMesInicial < mesCompraIndex) {
+            anoPrimeiraParcela++;
+        }
+
         for (int i = 0; i < numeroParcelas; i++) {
-            int mesFaturaIndex = (indiceMesInicial + i) % 12;
-            int anoFatura = compra.getDataCompra().getYear() + ((indiceMesInicial + i) / 12);
+            int offsetMeses = indiceMesInicial + i;
+            int mesFaturaIndex = offsetMeses % 12;
+            int anoFatura = anoPrimeiraParcela + (offsetMeses / 12);
             String mesAnoFatura = meses[mesFaturaIndex] + "/" + anoFatura;
 
             LancamentoCartao lancamento = LancamentoCartao.builder()
@@ -140,14 +148,7 @@ public class CompraService {
         }
     }
 
-    public CompraDTO toCompraDTO(Compra compra) {
-        return new CompraDTO(compra);
-    }
 
-    public List<CompraDTO> listarComprasDTO(int page, int size, String descricao, Long cartaoId, Long subcategoriaId) {
-        Page<Compra> comprasPage = listarCompras(page, size, descricao, cartaoId, subcategoriaId);
-        return comprasPage.stream().map(this::toCompraDTO).toList();
-    }
 
     @Transactional
     public Compra editarCompra(Long id, Compra compraAtualizada, String mesPrimeiraParcela, Integer numeroParcelas) {
@@ -171,6 +172,17 @@ public class CompraService {
         compra.setSubcategoria(subcategoria);
         compra.setProprietario(compraAtualizada.getProprietario());
         compra.setDetalhes(compraAtualizada.getDetalhes());
+
+        // Atualiza a coleção de terceiros
+        if (compra.getTerceiros() != null) {
+            compra.getTerceiros().clear();
+            if (compraAtualizada.getTerceiros() != null) {
+                compra.getTerceiros().addAll(compraAtualizada.getTerceiros());
+            }
+        } else {
+            compra.setTerceiros(compraAtualizada.getTerceiros());
+        }
+
         // Remove as parcelas antigas e gera novas
         lancamentoCartaoRepository.deleteByCompraIdAndTenantId(id, tenantId);
         List<LancamentoCartao> novasParcelas = gerarParcelas(compra, mesPrimeiraParcela, numeroParcelas);

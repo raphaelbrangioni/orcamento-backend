@@ -3,18 +3,19 @@ package com.example.orcamento.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 @Entity
 @Table(name = "compras")
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"terceiros", "parcelas"}) // Exclui para evitar referência circular
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -63,4 +64,22 @@ public class Compra {
 
     @Column(name = "tenant_id", nullable = false, length = 20)
     private String tenantId;
+
+    @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore // Evita serialização do grafo de terceiros (quebra o ciclo e evita proxies LAZY)
+    private Set<CompraTerceiro> terceiros;
+    
+    // Implementação manual de equals e hashCode para evitar referência circular
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Compra compra = (Compra) o;
+        return Objects.equals(id, compra.id);
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 }

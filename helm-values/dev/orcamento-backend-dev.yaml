@@ -1,0 +1,55 @@
+# Valores para ambiente de desenvolvimento
+replicaCount: 1
+
+image:
+  repository: rbrangioni/orcamento-backend
+  tag: "1.0.6"
+  pullPolicy: Always
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+app:
+  database:
+    host: mysql-external.orcamento.svc.cluster.local
+    port: 3306
+    name: orcamento_dev
+    username: root
+    password: admin.2011
+    
+  cors:
+    allowedOrigins: "http://localhost:8080,http://orcamento-dev.local"
+    
+  jwt:
+    expirationMs: 3600000  # 1 hora para dev
+    
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: noreplay.meuorcamento@gmail.com
+    password: eivo ottt pjzn vsdb
+    from: noreplay.meuorcamento@gmail.com
+
+# Health checks mais rápidos para dev
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3

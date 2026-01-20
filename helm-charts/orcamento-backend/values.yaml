@@ -1,0 +1,151 @@
+# Valores para o orcamento-backend (ambiente único de estudo)
+replicaCount: 1
+
+image:
+  repository: rbrangioni/orcamento-backend
+  pullPolicy: IfNotPresent
+  tag: "1.0.7"
+
+service:
+  type: ClusterIP
+  port: 8045
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Configurações específicas da aplicação
+app:
+  # Configurações do banco de dados
+  database:
+    host: mysql-external.orcamento.svc.cluster.local
+    port: 3306
+    name: orcamento
+    username: root
+    password: admin.2011
+    
+  # Configurações CORS
+  cors:
+    allowedOrigins: "http://orcamento.local"
+    
+  # Configurações JWT
+  jwt:
+    expirationMs: 1800000
+    
+  # Configurações de email
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: noreplay.meuorcamento@gmail.com
+    password: eivo ottt pjzn vsdb
+    from: noreplay.meuorcamento@gmail.com
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 45
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# ConfigMap configuration
+configMap:
+  create: true
+  data:
+    application.yaml: |
+      spring:
+        mvc:
+          cors:
+            mappings:
+              "[/**]":
+                allowed-origins: "{{ .Values.app.cors.allowedOrigins }}"
+                allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+                allowed-headers: "*"
+                exposed-headers: "*"
+                allow-credentials: true
+                max-age: 3600
+        application:
+          name: orcamento
+        devtools:
+          restart:
+            enabled: false
+        datasource:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://{{ .Values.app.database.host }}:{{ .Values.app.database.port }}/{{ .Values.app.database.name }}?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+          username: {{ .Values.app.database.username }}
+          password: {{ .Values.app.database.password }}
+          hikari:
+            minimum-idle: 5
+            maximum-pool-size: 20
+            idle-timeout: 30000
+            max-lifetime: 1800000
+            connection-timeout: 30000
+            pool-name: HikariPool-Orcamento
+        jpa:
+          database-platform: org.hibernate.dialect.MySQLDialect
+          hibernate:
+            ddl-auto: update
+          show-sql: false
+          properties:
+            hibernate:
+              format_sql: true
+              jdbc:
+                time_zone: UTC
+        jackson:
+          date-format: yyyy-MM-dd
+          time-zone: UTC
+          deserialization:
+            ADJUST_DATES_TO_CONTEXT_TIME_ZONE: false
+        servlet:
+          multipart:
+            max-file-size: 100MB
+            max-request-size: 100MB
+        mail:
+          host: {{ .Values.app.mail.host }}
+          port: {{ .Values.app.mail.port }}
+          username: {{ .Values.app.mail.username }}
+          password: {{ .Values.app.mail.password }}
+          properties:
+            mail:
+              smtp:
+                auth: true
+                starttls:
+                  enable: true
+          from: {{ .Values.app.mail.from }}
+      server:
+        port: 8045
+      springdoc:
+        api-docs:
+          enabled: true
+          path: /v3/api-docs
+        swagger-ui:
+          path: /swagger-ui.html
+          enabled: true
+      logging:
+        level:
+          org.springframework.security: INFO
+      jwt:
+        expiration:
+          ms: {{ .Values.app.jwt.expirationMs }}
+      file:
+        upload-dir: ./uploads
+      management:
+        endpoints:
+          web:
+            exposure:
+              include: health,info,prometheus

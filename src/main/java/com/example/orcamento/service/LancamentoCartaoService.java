@@ -22,6 +22,7 @@ import com.example.orcamento.dto.LancamentoCartaoDetalhadoDTO;
 import com.example.orcamento.dto.LancamentoCartaoComCompraDTO;
 import com.example.orcamento.dto.CategoriaDespesaDTO;
 import com.example.orcamento.dto.SubcategoriaDespesaDTO;
+import com.example.orcamento.mapper.CompraMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class LancamentoCartaoService {
     private final LancamentoCartaoRepository lancamentoCartaoRepository;
     private final CartaoCreditoRepository cartaoCreditoRepository;
     private final DespesaService despesaService;
+    private final CompraMapper compraMapper;
 
     public LancamentoCartao cadastrarLancamento(LancamentoCartao lancamento) {
         log.info("Lançamento a ser salvo: {}", lancamento);
@@ -88,7 +90,7 @@ public class LancamentoCartaoService {
         }
 
         if (lancamento.getCompra() != null) {
-            builder.compra(new CompraDTO(lancamento.getCompra()));
+            builder.compra(compraMapper.toDto(lancamento.getCompra()));
         }
 
         return builder.build();
@@ -277,7 +279,7 @@ public class LancamentoCartaoService {
                 .variabilidade(lancamento.getVariabilidade() != null ? lancamento.getVariabilidade().name() : null);
 
         if (lancamento.getCompra() != null) {
-            builder.compra(new CompraDTO(lancamento.getCompra()));
+            builder.compra(compraMapper.toDto(lancamento.getCompra()));
         }
 
         return builder.build();
