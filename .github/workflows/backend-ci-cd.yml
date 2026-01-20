@@ -4,12 +4,14 @@ on:
   push:
     branches: [ master, develop ]
     paths: 
-      - 'backend/**'
+      - 'src/**'
+      - 'pom.xml'
       - '.github/workflows/backend-ci-cd.yml'
   pull_request:
     branches: [ master ]
     paths:
-      - 'backend/**'
+      - 'src/**'
+      - 'pom.xml'
 
 env:
   DOCKER_REGISTRY: docker.io
@@ -40,16 +42,14 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
         
     - name: 🔍 Run tests
-      run: |
-        cd backend
-        mvn clean test
+      run: mvn clean test
         
     - name: 📊 Generate test report
       uses: dorny/test-reporter@v1
       if: success() || failure()
       with:
         name: Maven Tests
-        path: backend/target/surefire-reports/*.xml
+        path: target/surefire-reports/*.xml
         reporter: java-junit
 
   build:
@@ -76,9 +76,7 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
         
     - name: 🏗️ Build application
-      run: |
-        cd backend
-        mvn clean package -DskipTests
+      run: mvn clean package -DskipTests
         
     - name: 🏷️ Generate version
       id: version
@@ -99,7 +97,7 @@ jobs:
     - name: 🏗️ Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: ./backend
+        context: .
         push: true
         tags: |
           ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
