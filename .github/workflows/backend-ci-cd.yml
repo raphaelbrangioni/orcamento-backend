@@ -72,32 +72,11 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
-    - name: 🚀 Deploy to Kubernetes
-      env:
-        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        VERSION: ${{ steps.version.outputs.VERSION }}
+    - name: 🎉 Build completed successfully
       run: |
-        # Setup kubectl
-        mkdir -p ~/.kube
-        echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-        
-        # Update Helm values with new version
-        sed -i "s/tag: .*/tag: \"$VERSION\"/" helm-charts/orcamento-backend/values.yaml
-        
-        # Deploy using Helm
-        helm upgrade --install orcamento-backend ./helm-charts/orcamento-backend \
-          --namespace $KUBE_NAMESPACE \
-          --values values-orcamento.yaml \
-          --set image.tag=$VERSION \
-          --wait --timeout=300s
-          
-        # Verify deployment
-        kubectl rollout status deployment/orcamento-backend -n $KUBE_NAMESPACE
-        
-    - name: 📢 Deployment notification
-      if: success()
-      run: |
-        echo "✅ Backend deployed successfully!"
+        echo "✅ Build finalizado com sucesso!"
+        echo "📦 Imagem Docker criada: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+        echo "🚀 Deploy no Kubernetes deve ser feito manualmente ou quando o cluster estiver acessível"
         echo "🏷️ Version: ${{ steps.version.outputs.VERSION }}"
         echo "🌐 URL: http://api.orcamento.local"
         
