@@ -52,6 +52,13 @@ public interface DespesaRepository extends JpaRepository<Despesa, Long>, JpaSpec
     @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId")
     List<Despesa> findByTenantId(@Param("tenantId") String tenantId);
 
+    @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.contaCorrente.id = :contaCorrenteId AND d.dataPagamento BETWEEN :inicio AND :fim AND d.valorPago IS NOT NULL")
+    List<Despesa> findPagasByContaCorrenteAndDataPagamentoBetween(
+            @Param("tenantId") String tenantId,
+            @Param("contaCorrenteId") Long contaCorrenteId,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
+
     @Query("SELECT d FROM Despesa d WHERE d.tenantId = :tenantId AND d.dataVencimento BETWEEN :inicio AND :fim")
     List<Despesa> findByTenantIdAndDataVencimentoBetween(@Param("tenantId") String tenantId, @Param("inicio") LocalDate inicio, @Param("fim") LocalDate fim);
 

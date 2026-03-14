@@ -18,7 +18,7 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/orcamento?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/orcamento-hml?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
     username: root
     password: admin.2011
     hikari:
@@ -86,7 +86,16 @@ jwt:
 file:
   upload-dir: ./uploads
 
+notificacoes:
+  despesas:
+    enabled: true
+    dias-antecedencia: 7
+    cron: "0 0 12 * * *"
+
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:

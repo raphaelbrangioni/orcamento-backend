@@ -2,8 +2,6 @@
 package com.example.orcamento.controller;
 
 import com.example.orcamento.dto.TransacaoFinanceiraDTO;
-import com.example.orcamento.model.Despesa;
-import com.example.orcamento.model.LancamentoCartao;
 import com.example.orcamento.service.DespesaService;
 import com.example.orcamento.service.LancamentoCartaoService;
 import com.example.orcamento.service.TransacaoFinanceiraService;
@@ -11,13 +9,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.time.format.TextStyle;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/transacoes")
@@ -53,8 +54,11 @@ public class TransacaoFinanceiraController {
             @RequestParam(required = false) Integer totalParcelas,
             @RequestParam(required = false) String dataInicio,
             @RequestParam(required = false) String dataFim,
+            @RequestParam(required = false, defaultValue = "false") Boolean busPorFatura,
             @RequestParam(required = false) String origem) {
         log.info("Requisição GET em /api/v1/transacoes/filtrar-dinamico com filtros");
+
+
 
         Map<String, Object> filtros = new HashMap<>();
         if (id != null) filtros.put("id", id);
@@ -71,7 +75,47 @@ public class TransacaoFinanceiraController {
         if (dataFim != null) filtros.put("dataFim", dataFim);
         if (origem != null) filtros.put("origem", origem);
 
+        if (Boolean.TRUE.equals(busPorFatura) && dataInicio != null && dataFim != null) {
+            LocalDate inicio = parseDate(dataInicio, "dataInicio");
+            LocalDate fim = parseDate(dataFim, "dataFim");
+            if (fim.isBefore(inicio)) {
+                throw new IllegalArgumentException("dataFim não pode ser menor que dataInicio");
+            }
+            filtros.put("mesAnoFaturaList", gerarMesesFatura(inicio, fim));
+        } else {
+            if (dataInicio != null) {
+                filtros.put("dataCompraInicial", parseDate(dataInicio, "dataInicio"));
+            }
+            if (dataFim != null) {
+                filtros.put("dataCompraFinal", parseDate(dataFim, "dataFim"));
+            }
+        }
+
         List<TransacaoFinanceiraDTO> transacoes = transacaoFinanceiraService.filtrarTransacoesDinamico(filtros);
         return ResponseEntity.ok(transacoes);
+    }
+
+    private List<String> gerarMesesFatura(LocalDate inicio, LocalDate fim) {
+        List<String> meses = new ArrayList<>();
+        YearMonth atual = YearMonth.from(inicio);
+        YearMonth ultimo = YearMonth.from(fim);
+        Locale localePtBr = new Locale("pt", "BR");
+
+        while (!atual.isAfter(ultimo)) {
+            String nomeMes = atual.getMonth().getDisplayName(TextStyle.FULL, localePtBr).toUpperCase(localePtBr);
+            meses.add(nomeMes + "/" + atual.getYear());
+            atual = atual.plusMonths(1);
+        }
+
+        return meses;
+    }
+
+    private LocalDate parseDate(String valor, String campo) {
+        try {
+            return LocalDate.parse(valor);
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException(
+                    String.format("Data inválida para %s: %s", campo, valor), ex);
+        }
     }
 }

@@ -39,6 +39,12 @@ public class Movimentacao {
     @Column
     private String descricao; // Detalhes ou observação sobre a movimentação
 
+    @Column(name = "transferencia_id")
+    private String transferenciaId;
+
+    @Column(name = "transferencia_original_id")
+    private String transferenciaOriginalId;
+
     @ManyToOne
     @JoinColumn(name = "conta_corrente_id", nullable = false)
     private ContaCorrente contaCorrente;

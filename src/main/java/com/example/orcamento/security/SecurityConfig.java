@@ -84,6 +84,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/horas-trabalhadas").authenticated()
                         .requestMatchers("/api/v1/horas-trabalhadas/**").authenticated()
                         .requestMatchers("api/v1/pessoas/**").authenticated()
+                        .requestMatchers("/api/v1/conciliacao/**").authenticated()
+                        .requestMatchers("/api/v1/despesas/com-pagamento").authenticated()
+                        .requestMatchers("/api/v1/movimentacoes/transferencias/**").authenticated()
                         .anyRequest().denyAll()
 
                 )

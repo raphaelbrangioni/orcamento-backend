@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -48,6 +49,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                     // Pega o tenantId do token e coloca no contexto
                     String tenantId = jwtUtil.extractTenantId(token);
+                    if (!StringUtils.hasText(tenantId)) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.setCharacterEncoding("UTF-8");
+                        response.getWriter().write("{\"message\": \"Token sem tenantId válido. Faça login novamente.\"}");
+                        return;
+                    }
                     TenantContext.setTenantId(tenantId);
                 } else {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

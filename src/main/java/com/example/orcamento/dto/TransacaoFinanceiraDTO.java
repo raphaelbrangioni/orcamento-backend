@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.text.Normalizer;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -79,7 +80,7 @@ public class TransacaoFinanceiraDTO {
         if (mesAnoFatura == null) return null;
         String[] partes = mesAnoFatura.split("/");
         if (partes.length != 2) return null; // Retorna null se formato inválido
-        String mes = partes[0].toUpperCase();
+        String mes = normalizarMes(partes[0]);
         String ano = partes[1];
         String mesNumero = switch (mes) {
             case "JANEIRO" -> "01";
@@ -98,4 +99,15 @@ public class TransacaoFinanceiraDTO {
         };
         return String.format("%s-%s-01", ano, mesNumero); // Ex.: 2025-12-01
     }
+
+    private String normalizarMes(String mesOriginal) {
+        if (mesOriginal == null) {
+            return "";
+        }
+        String semAcento = Normalizer.normalize(mesOriginal, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return semAcento.toUpperCase().replace('Ç', 'C');
+    }
+
+
 }

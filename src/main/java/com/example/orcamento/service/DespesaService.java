@@ -105,6 +105,38 @@ public class DespesaService {
     }
 
     @Transactional
+    public Despesa criarDespesaComPagamento(Despesa despesa, BigDecimal valorPago, LocalDate dataPagamento, Long contaCorrenteId, Long metaEconomiaId, FormaDePagamento formaPagamento) {
+        if (despesa == null) {
+            throw new IllegalArgumentException("Despesa é obrigatória");
+        }
+        if (valorPago == null || valorPago.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("valorPago é obrigatório e deve ser maior que zero");
+        }
+        if (dataPagamento == null) {
+            throw new IllegalArgumentException("dataPagamento é obrigatória");
+        }
+        if (contaCorrenteId == null) {
+            throw new IllegalArgumentException("contaCorrenteId é obrigatório");
+        }
+
+        despesa.setValorPago(valorPago);
+        despesa.setDataPagamento(dataPagamento);
+        despesa.setFormaDePagamento(formaPagamento);
+
+        ContaCorrente conta = contaCorrenteService.buscarPorId(contaCorrenteId)
+                .orElseThrow(() -> new IllegalArgumentException("Conta não encontrada: " + contaCorrenteId));
+        despesa.setContaCorrente(conta);
+
+        if (metaEconomiaId != null) {
+            MetaEconomia meta = metaEconomiaService.buscarPorId(metaEconomiaId)
+                    .orElseThrow(() -> new IllegalArgumentException("Meta não encontrada: " + metaEconomiaId));
+            despesa.setMetaEconomia(meta);
+        }
+
+        return salvarDespesa(despesa);
+    }
+
+    @Transactional
     public void excluirDespesa(Long id) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         Despesa despesa = despesaRepository.findById(id)
@@ -321,7 +353,8 @@ public class DespesaService {
 
     public List<Despesa> listarProximasEVencidas(LocalDate dataReferencia, LocalDate dataFim) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        return despesaRepository.findVencidasEProximas(tenantId, dataReferencia, dataFim);
+        LocalDate dataFinalEfetiva = (dataFim != null) ? dataFim : dataReferencia;
+        return despesaRepository.findVencidasEProximas(tenantId, dataReferencia, dataFinalEfetiva);
     }
 
     public List<Despesa> listarDespesasPorPeriodo(LocalDate inicio, LocalDate fim) {

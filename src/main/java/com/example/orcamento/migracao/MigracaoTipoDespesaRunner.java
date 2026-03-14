@@ -2,7 +2,6 @@ package com.example.orcamento.migracao;
 
 import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.DespesaParcelada;
-import com.example.orcamento.model.Limite;
 import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.DespesaParceladaRepository;

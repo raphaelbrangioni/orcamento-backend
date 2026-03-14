@@ -24,4 +24,7 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
     List<Movimentacao> findByContaCorrenteIdAndTenantId(Long contaCorrenteId, String tenantId);
     List<Movimentacao> findByDataRecebimentoBetweenAndTenantId(LocalDate dataInicio, LocalDate dataFim, String tenantId);
     List<Movimentacao> findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(Long contaCorrenteId, String tenantId, LocalDate dataInicio, LocalDate dataFim);
+
+    List<Movimentacao> findByTransferenciaIdAndTenantId(String transferenciaId, String tenantId);
+    List<Movimentacao> findByTransferenciaOriginalIdAndTenantId(String transferenciaOriginalId, String tenantId);
 }

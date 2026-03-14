@@ -5,6 +5,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+ import org.springframework.beans.factory.annotation.Value;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
@@ -13,10 +14,16 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+     @Value("${spring.mail.from:}")
+     private String from;
+
     public void enviarEmail(String para, String assunto, String corpoHtml) {
         try {
             MimeMessage mensagem = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mensagem, true, "UTF-8");
+            if (from != null && !from.isBlank()) {
+                helper.setFrom(from);
+            }
             helper.setTo(para);
             helper.setSubject(assunto);
             helper.setText(corpoHtml, true); // true = HTML

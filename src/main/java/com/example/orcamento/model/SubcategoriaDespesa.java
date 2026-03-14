@@ -8,12 +8,14 @@ import jakarta.persistence.OneToMany;
 import lombok.Data;
 import lombok.ToString;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
 
 @Entity
 @Data
 @ToString
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class SubcategoriaDespesa {
     @Id
     // Removido @GeneratedValue para controle manual do id

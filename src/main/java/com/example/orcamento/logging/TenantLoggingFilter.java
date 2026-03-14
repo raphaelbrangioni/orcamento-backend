@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.Arrays;
 
 @Component
@@ -60,8 +61,15 @@ public class TenantLoggingFilter extends OncePerRequestFilter implements Initial
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        long startNs = System.nanoTime();
         logger.debug("Iniciando filtro de tenant para: {} {}", request.getMethod(), request.getRequestURI());
         String tenantId = null;
+        String tenantIdHeader = request.getHeader("x-tenant-id");
+        String traceIdHeader = request.getHeader("x-trace-id");
+        if (traceIdHeader == null || traceIdHeader.isBlank()) {
+            traceIdHeader = request.getHeader("x-correlation-id");
+        }
+        String traceId = (traceIdHeader != null && !traceIdHeader.isBlank()) ? traceIdHeader : UUID.randomUUID().toString();
         try {
             tenantId = TenantContext.getTenantId();
             logger.debug("Tenant ID obtido: {}", tenantId);
@@ -70,12 +78,36 @@ public class TenantLoggingFilter extends OncePerRequestFilter implements Initial
             throw e;
         }
         try {
-            MDC.put("tenantId", tenantId);
+            String tenantIdLog = (tenantIdHeader != null && !tenantIdHeader.isBlank()) ? tenantIdHeader : tenantId;
+            MDC.put("tenantId", tenantIdLog != null ? tenantIdLog : "");
+            MDC.put("traceId", traceId);
             logger.info("[TENANT] Nova requisição recebida | tenantId={} | método={} | endpoint={}",
-                    tenantId, request.getMethod(), request.getRequestURI());
-            filterChain.doFilter(request, response);
+                    tenantIdLog, request.getMethod(), request.getRequestURI());
+            try {
+                filterChain.doFilter(request, response);
+            } catch (Throwable t) {
+                logger.error(
+                        "[TENANT] Erro durante processamento da requisição | tenantId={} | método={} | endpoint={}",
+                        tenantIdLog,
+                        request.getMethod(),
+                        request.getRequestURI(),
+                        t
+                );
+                throw t;
+            } finally {
+                long durationMs = (System.nanoTime() - startNs) / 1_000_000;
+                logger.info(
+                        "[TENANT] Requisição finalizada | tenantId={} | método={} | endpoint={} | status={} | durationMs={}",
+                        tenantIdLog,
+                        request.getMethod(),
+                        request.getRequestURI(),
+                        response.getStatus(),
+                        durationMs
+                );
+            }
         } finally {
             MDC.remove("tenantId");
+            MDC.remove("traceId");
         }
     }
 }

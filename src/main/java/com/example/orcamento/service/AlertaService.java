@@ -35,7 +35,10 @@ public class AlertaService {
         log.info("Limites encontrados: {}", limites.size());
         if (!limites.isEmpty()) {
             for (Limite l : limites) {
-                log.info("Limite: categoria={}, valor={}, id={}", l.getTipoDespesa().getNome(), l.getValor(), l.getTipoDespesa().getId());
+                log.info("Limite: subcategoria={}, valor={}, id={}",
+                        l.getSubcategoria().getNome(),
+                        l.getValor(),
+                        l.getSubcategoria().getId());
             }
         }
 
@@ -51,7 +54,7 @@ public class AlertaService {
 
         List<TransacaoFinanceiraDTO> transacoes = transacaoFinanceiraService.filtrarTransacoesDinamico(filtros);
 
-        // Agrupa por categoriaId
+        // Agrupa por categoriaId (mantemos nomenclatura antiga)
         Map<Long, Double> gastosPorCategoria = new HashMap<>();
         for (TransacaoFinanceiraDTO t : transacoes) {
             if (t.getCategoria() != null && t.getCategoria().getId() != null) {
@@ -63,7 +66,7 @@ public class AlertaService {
         log.info("Gastos por categoria (por id) via transacaoFinanceiraService: {}", gastosPorCategoria);
 
         for (Limite limite : limites) {
-            Long categoriaId = limite.getTipoDespesa().getId();
+            Long categoriaId = limite.getSubcategoria().getId();
             double limiteValor = limite.getValor();
             double gastoAtual = gastosPorCategoria.getOrDefault(categoriaId, 0.0);
             log.info("CategoriaId: {}, Limite: {}, Gasto: {}", categoriaId, limiteValor, gastoAtual);
@@ -74,9 +77,9 @@ public class AlertaService {
                 alerta.put("categoriaId", categoriaId);
                 alerta.put("mensagem", String.format(
                         "Gasto em %s atingiu %.0f%% do limite de R$%.2f: R$%.2f",
-                        limite.getTipoDespesa().getNome(), percentual * 100, limiteValor, gastoAtual
+                        limite.getSubcategoria().getNome(), percentual * 100, limiteValor, gastoAtual
                 ));
-                alerta.put("categoria", limite.getTipoDespesa().getNome());
+                alerta.put("categoria", limite.getSubcategoria().getNome());
                 alerta.put("percentual", percentual);
                 alerta.put("limite", limiteValor);
                 alerta.put("gasto", gastoAtual);

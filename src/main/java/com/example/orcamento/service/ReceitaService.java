@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,6 +26,7 @@ public class ReceitaService {
     private final ReceitaRepository receitaRepository;
     private final MovimentacaoService movimentacaoService;
     private final MovimentacaoRepository movimentacaoRepository;
+    private final ContaCorrenteService contaCorrenteService;
 
     public List<Receita> listarReceitas() {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
@@ -113,41 +115,13 @@ public class ReceitaService {
             throw new SecurityException("Acesso negado à receita de outro tenant.");
         }
 
-        // Se o status "isPrevista" mudou ou valores afetam o saldo
-        if (receita.isPrevista() != receitaAtualizada.isPrevista() ||
-                !receita.getValor().equals(receitaAtualizada.getValor()) ||
-                !receita.getContaCorrente().getId().equals(receitaAtualizada.getContaCorrente().getId())) {
-
-            if (!receita.isPrevista()) {
-                // Remove o valor antigo se era efetivada
-                Movimentacao movimentacaoSaida = Movimentacao.builder()
-                        .tipo(TipoMovimentacao.SAIDA)
-                        .valor(receita.getValor())
-                        .contaCorrente(receita.getContaCorrente())
-                        .receita(receita)
-                        .descricao("Correção de receita (saída): " + receita.getDescricao())
-                        .dataRecebimento(receita.getDataRecebimento())
-                        .dataCadastro(LocalDateTime.now())
-                        .tenantId(tenantId)
-                        .build();
-                movimentacaoService.registrarMovimentacao(movimentacaoSaida);
-            }
-
-            if (!receitaAtualizada.isPrevista()) {
-                // Adiciona o novo valor se agora é efetivada
-                Movimentacao movimentacaoEntrada = Movimentacao.builder()
-                        .tipo(TipoMovimentacao.ENTRADA)
-                        .valor(receitaAtualizada.getValor())
-                        .contaCorrente(receitaAtualizada.getContaCorrente())
-                        .receita(receita)
-                        .descricao("Correção de receita (entrada): " + receitaAtualizada.getDescricao())
-                        .dataRecebimento(receitaAtualizada.getDataRecebimento())
-                        .dataCadastro(LocalDateTime.now())
-                        .tenantId(tenantId)
-                        .build();
-                movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
-            }
-        }
+        boolean precisaRefazerMovimentacao = receita.isPrevista() != receitaAtualizada.isPrevista() ||
+                (receita.getValor() != null && !receita.getValor().equals(receitaAtualizada.getValor())) ||
+                (receita.getValor() == null && receitaAtualizada.getValor() != null) ||
+                (receita.getContaCorrente() != null && receita.getContaCorrente().getId() != null
+                        && receitaAtualizada.getContaCorrente() != null && receitaAtualizada.getContaCorrente().getId() != null
+                        && !receita.getContaCorrente().getId().equals(receitaAtualizada.getContaCorrente().getId())) ||
+                !Objects.equals(receita.getDataRecebimento(), receitaAtualizada.getDataRecebimento());
 
         receita.setDescricao(receitaAtualizada.getDescricao());
         receita.setValor(receitaAtualizada.getValor());
@@ -155,7 +129,44 @@ public class ReceitaService {
         receita.setTipo(receitaAtualizada.getTipo());
         receita.setContaCorrente(receitaAtualizada.getContaCorrente());
         receita.setPrevista(receitaAtualizada.isPrevista());
-        return receitaRepository.save(receita);
+
+        Receita receitaSalva = receitaRepository.save(receita);
+
+        if (precisaRefazerMovimentacao) {
+            List<Movimentacao> movimentacoesExistentes = movimentacaoRepository.findByReceita(receitaSalva);
+
+            if (movimentacoesExistentes != null && !movimentacoesExistentes.isEmpty()) {
+                LocalDateTime agora = LocalDateTime.now();
+
+                for (Movimentacao m : movimentacoesExistentes) {
+                    if (m.getContaCorrente() == null || m.getContaCorrente().getId() == null || m.getValor() == null || m.getTipo() == null) {
+                        continue;
+                    }
+
+                    boolean desfazerComoEntrada = m.getTipo() == TipoMovimentacao.SAIDA;
+                    contaCorrenteService.atualizarSaldo(m.getContaCorrente().getId(), m.getValor(), desfazerComoEntrada, agora);
+                }
+
+                movimentacaoRepository.deleteAll(movimentacoesExistentes);
+            }
+
+            if (!receitaSalva.isPrevista()) {
+                String tenantAtual = com.example.orcamento.security.TenantContext.getTenantId();
+                Movimentacao movimentacaoEntrada = Movimentacao.builder()
+                        .tipo(TipoMovimentacao.ENTRADA)
+                        .valor(receitaSalva.getValor())
+                        .contaCorrente(receitaSalva.getContaCorrente())
+                        .receita(receitaSalva)
+                        .descricao("Recebimento de " + receitaSalva.getDescricao())
+                        .dataRecebimento(receitaSalva.getDataRecebimento())
+                        .dataCadastro(LocalDateTime.now())
+                        .tenantId(tenantAtual)
+                        .build();
+                movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
+            }
+        }
+
+        return receitaSalva;
     }
 
     // src/main/java/com/example/orcamento/service/ReceitaService.java

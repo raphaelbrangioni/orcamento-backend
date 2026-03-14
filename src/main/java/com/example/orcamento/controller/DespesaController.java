@@ -60,6 +60,20 @@ public class DespesaController {
         return ResponseEntity.ok(List.of(toDespesaResponseDTO(salva)));
     }
 
+    @PostMapping("/com-pagamento")
+    public ResponseEntity<DespesaResponseDTO> cadastrarDespesaComPagamento(@RequestBody CriarDespesaComPagamentoRequest request) {
+        log.info("Requisição POST em /api/v1/despesas/com-pagamento, cadastrarDespesaComPagamento");
+        Despesa despesa = despesaService.criarDespesaComPagamento(
+                request.getDespesa(),
+                request.getValorPago(),
+                request.getDataPagamento(),
+                request.getContaCorrenteId(),
+                request.getMetaEconomiaId(),
+                request.getFormaDePagamento()
+        );
+        return ResponseEntity.ok(toDespesaResponseDTO(despesa));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluirDespesa(@PathVariable Long id) {
         log.info("Requisição DELETE em /api/v1/despesas/{id}, excluirDespesa");
@@ -158,6 +172,28 @@ public class DespesaController {
         public Long getMetaId() { return metaId; }
         public void setMetaId(Long metaId) { this.metaId = metaId; }
         public FormaDePagamento getFormaDePagamento() { return formaDePagamento; }
+    }
+
+    static class CriarDespesaComPagamentoRequest {
+        private Despesa despesa;
+        private BigDecimal valorPago;
+        private LocalDate dataPagamento;
+        private Long contaCorrenteId;
+        private Long metaEconomiaId;
+        private FormaDePagamento formaDePagamento;
+
+        public Despesa getDespesa() { return despesa; }
+        public void setDespesa(Despesa despesa) { this.despesa = despesa; }
+        public BigDecimal getValorPago() { return valorPago; }
+        public void setValorPago(BigDecimal valorPago) { this.valorPago = valorPago; }
+        public LocalDate getDataPagamento() { return dataPagamento; }
+        public void setDataPagamento(LocalDate dataPagamento) { this.dataPagamento = dataPagamento; }
+        public Long getContaCorrenteId() { return contaCorrenteId; }
+        public void setContaCorrenteId(Long contaCorrenteId) { this.contaCorrenteId = contaCorrenteId; }
+        public Long getMetaEconomiaId() { return metaEconomiaId; }
+        public void setMetaEconomiaId(Long metaEconomiaId) { this.metaEconomiaId = metaEconomiaId; }
+        public FormaDePagamento getFormaDePagamento() { return formaDePagamento; }
+        public void setFormaDePagamento(FormaDePagamento formaDePagamento) { this.formaDePagamento = formaDePagamento; }
     }
 
     @GetMapping("/ano")
