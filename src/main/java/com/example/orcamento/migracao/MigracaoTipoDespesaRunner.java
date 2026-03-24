@@ -5,7 +5,6 @@ import com.example.orcamento.model.DespesaParcelada;
 import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.DespesaParceladaRepository;
-import com.example.orcamento.repository.LimiteRepository;
 import com.example.orcamento.repository.SubcategoriaDespesaRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -19,17 +18,14 @@ public class MigracaoTipoDespesaRunner implements CommandLineRunner {
 
     private final DespesaRepository despesaRepository;
     private final DespesaParceladaRepository despesaParceladaRepository;
-    private final LimiteRepository limiteRepository;
     private final SubcategoriaDespesaRepository subcategoriaDespesaRepository;
 
     public MigracaoTipoDespesaRunner(
             DespesaRepository despesaRepository,
             DespesaParceladaRepository despesaParceladaRepository,
-            LimiteRepository limiteRepository,
             SubcategoriaDespesaRepository subcategoriaDespesaRepository) {
         this.despesaRepository = despesaRepository;
         this.despesaParceladaRepository = despesaParceladaRepository;
-        this.limiteRepository = limiteRepository;
         this.subcategoriaDespesaRepository = subcategoriaDespesaRepository;
     }
 
@@ -91,10 +87,6 @@ public class MigracaoTipoDespesaRunner implements CommandLineRunner {
         });
         // Migrar DespesaParcelada
         despesaParceladaRepository.findAll().forEach(dp -> {
-            // Adapte aqui se o campo antigo foi removido:
-        });
-        // Migrar Limite
-        limiteRepository.findAll().forEach(limite -> {
             // Adapte aqui se o campo antigo foi removido:
         });
     }
