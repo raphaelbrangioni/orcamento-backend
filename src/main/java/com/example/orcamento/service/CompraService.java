@@ -1,8 +1,9 @@
-// src/main/java/com/example/orcamento/service/CompraService.java
 package com.example.orcamento.service;
 
 import com.example.orcamento.model.Compra;
+import com.example.orcamento.model.CompraTerceiro;
 import com.example.orcamento.model.LancamentoCartao;
+import com.example.orcamento.model.Pessoa;
 import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import com.example.orcamento.repository.CompraRepository;
@@ -16,7 +17,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,28 +36,24 @@ public class CompraService {
     @Transactional
     public Compra cadastrarCompraParcelada(Compra compra, String mesPrimeiraParcela, Integer numeroParcelas) {
         log.info("Cadastrando compra parcelada: {}", compra);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
 
-        // Garante que a subcategoria está gerenciada pelo JPA
         if (compra.getSubcategoria() != null && compra.getSubcategoria().getId() != null) {
-            SubcategoriaDespesa sub = subcategoriaDespesaRepository.findById(compra.getSubcategoria().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Subcategoria não encontrada: " + compra.getSubcategoria().getId()));
-            compra.setSubcategoria(sub);
+            compra.setSubcategoria(buscarSubcategoriaPorId(compra.getSubcategoria().getId(), tenantId));
         }
 
-        // Busca o cartão do tenant atual
         if (compra.getCartaoCredito() != null && compra.getCartaoCredito().getId() != null) {
-            String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
             compra.setCartaoCredito(
-                cartaoCreditoRepository.findByIdAndTenantId(compra.getCartaoCredito().getId(), tenantId)
-                    .orElseThrow(() -> new IllegalArgumentException("Cartão de crédito não encontrado para o tenant atual: " + compra.getCartaoCredito().getId()))
+                    cartaoCreditoRepository.findByIdAndTenantId(compra.getCartaoCredito().getId(), tenantId)
+                            .orElseThrow(() -> new IllegalArgumentException("Cartao de credito nao encontrado para o tenant atual: " + compra.getCartaoCredito().getId()))
             );
-            compra.setTenantId(tenantId); // <-- SETA O TENANT NA COMPRA
         }
 
-        // Salva a compra
+        validarTerceiros(compra, tenantId);
+        compra.setTenantId(tenantId);
+
         Compra compraSalva = compraRepository.save(compra);
 
-        // Gera e salva as parcelas
         List<LancamentoCartao> parcelas = gerarParcelas(compraSalva, mesPrimeiraParcela, numeroParcelas);
         parcelas.forEach(parcela -> parcela.setCompra(compraSalva));
         lancamentoCartaoRepository.saveAll(parcelas);
@@ -80,7 +76,7 @@ public class CompraService {
             }
         }
         if (indiceMesInicial == -1) {
-            throw new IllegalArgumentException("Mês da primeira parcela inválido: " + mesPrimeiraParcela);
+            throw new IllegalArgumentException("Mes da primeira parcela invalido: " + mesPrimeiraParcela);
         }
 
         String tenantId = compra.getTenantId();
@@ -124,7 +120,7 @@ public class CompraService {
     public Page<Compra> listarUltimasCompras(int page, int size) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-        log.info("[DEBUG] Buscando últimas compras para tenantId={} page={} size={}", tenantId, page, size);
+        log.info("[DEBUG] Buscando ultimas compras para tenantId={} page={} size={}", tenantId, page, size);
         Page<Compra> pageResult = compraRepository.findUltimasComprasByTenant(tenantId, pageRequest);
         pageResult.forEach(c -> {
             if (c.getCartaoCredito() == null) {
@@ -143,12 +139,9 @@ public class CompraService {
         log.info("[DEBUG] Buscando compras por filtro para tenantId={} page={} size={} descricao={} cartaoId={} subcategoriaId={}", tenantId, page, size, descricao, cartaoId, subcategoriaId);
         if (subcategoriaId != null) {
             return compraRepository.findByTenantIdAndSubcategoriaId(tenantId, subcategoriaId, pageRequest);
-        } else {
-            return compraRepository.findByTenantId(tenantId, pageRequest);
         }
+        return compraRepository.findByTenantId(tenantId, pageRequest);
     }
-
-
 
     @Transactional
     public Compra editarCompra(Long id, Compra compraAtualizada, String mesPrimeiraParcela, Integer numeroParcelas) {
@@ -156,24 +149,28 @@ public class CompraService {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         Compra compra = compraRepository.findByIdAndTenantId(id, tenantId);
         if (compra == null) {
-            throw new IllegalArgumentException("Compra não encontrada ou não pertence ao tenant atual.");
+            throw new IllegalArgumentException("Compra nao encontrada ou nao pertence ao tenant atual.");
         }
+
         compra.setDescricao(compraAtualizada.getDescricao());
         compra.setValorTotal(compraAtualizada.getValorTotal());
         compra.setNumeroParcelas(compraAtualizada.getNumeroParcelas());
         compra.setDataCompra(compraAtualizada.getDataCompra());
-        compra.setCartaoCredito(compraAtualizada.getCartaoCredito());
-        // Validação e busca da SubcategoriaDespesa
-        if (compraAtualizada.getSubcategoria() == null || compraAtualizada.getSubcategoria().getId() == null) {
-            throw new IllegalArgumentException("A subcategoria é obrigatória.");
+
+        if (compraAtualizada.getCartaoCredito() != null && compraAtualizada.getCartaoCredito().getId() != null) {
+            compra.setCartaoCredito(
+                    cartaoCreditoRepository.findByIdAndTenantId(compraAtualizada.getCartaoCredito().getId(), tenantId)
+                            .orElseThrow(() -> new IllegalArgumentException("Cartao de credito nao encontrado para o tenant atual: " + compraAtualizada.getCartaoCredito().getId()))
+            );
         }
-        SubcategoriaDespesa subcategoria = subcategoriaDespesaRepository.findById(compraAtualizada.getSubcategoria().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Subcategoria com ID " + compraAtualizada.getSubcategoria().getId() + " não encontrada."));
-        compra.setSubcategoria(subcategoria);
+
+        if (compraAtualizada.getSubcategoria() == null || compraAtualizada.getSubcategoria().getId() == null) {
+            throw new IllegalArgumentException("A subcategoria e obrigatoria.");
+        }
+        compra.setSubcategoria(buscarSubcategoriaPorId(compraAtualizada.getSubcategoria().getId(), tenantId));
         compra.setProprietario(compraAtualizada.getProprietario());
         compra.setDetalhes(compraAtualizada.getDetalhes());
 
-        // Atualiza a coleção de terceiros
         if (compra.getTerceiros() != null) {
             compra.getTerceiros().clear();
             if (compraAtualizada.getTerceiros() != null) {
@@ -183,7 +180,8 @@ public class CompraService {
             compra.setTerceiros(compraAtualizada.getTerceiros());
         }
 
-        // Remove as parcelas antigas e gera novas
+        validarTerceiros(compra, tenantId);
+
         lancamentoCartaoRepository.deleteByCompraIdAndTenantId(id, tenantId);
         List<LancamentoCartao> novasParcelas = gerarParcelas(compra, mesPrimeiraParcela, numeroParcelas);
         novasParcelas.forEach(parcela -> parcela.setCompra(compra));
@@ -197,9 +195,31 @@ public class CompraService {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         Compra compra = compraRepository.findByIdAndTenantId(id, tenantId);
         if (compra == null) {
-            throw new IllegalArgumentException("Compra não encontrada ou não pertence ao tenant atual.");
+            throw new IllegalArgumentException("Compra nao encontrada ou nao pertence ao tenant atual.");
         }
         lancamentoCartaoRepository.deleteByCompraIdAndTenantId(id, tenantId);
         compraRepository.delete(compra);
+    }
+
+    private SubcategoriaDespesa buscarSubcategoriaPorId(Long id, String tenantId) {
+        return subcategoriaDespesaRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Subcategoria nao encontrada: " + id));
+    }
+
+    private void validarTerceiros(Compra compra, String tenantId) {
+        if (compra.getTerceiros() == null) {
+            return;
+        }
+
+        for (CompraTerceiro compraTerceiro : compra.getTerceiros()) {
+            if (compraTerceiro.getPessoa() == null || compraTerceiro.getPessoa().getId() == null) {
+                throw new IllegalArgumentException("Pessoa de terceiro e obrigatoria.");
+            }
+
+            Pessoa pessoa = pessoaRepository.findByIdAndTenantId(compraTerceiro.getPessoa().getId(), tenantId)
+                    .orElseThrow(() -> new IllegalArgumentException("Pessoa nao encontrada para o tenant atual: " + compraTerceiro.getPessoa().getId()));
+            compraTerceiro.setPessoa(pessoa);
+            compraTerceiro.setCompra(compra);
+        }
     }
 }

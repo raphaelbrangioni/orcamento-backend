@@ -1,71 +1,31 @@
 spring:
-  mvc:
-    cors:
-      mappings:
-        "[/**]":
-          allowed-origins: "http://orcamento.local"
-          allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
-          allowed-headers: "*"
-          exposed-headers: "*"
-          allow-credentials: true
-          max-age: 3600
   application:
     name: orcamento
-
+  profiles:
+    default: dev
   devtools:
     restart:
       enabled: false
-
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/orcamento-hml?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-    username: root
-    password: admin.2011
-    hikari:
-      minimum-idle: 5
-      maximum-pool-size: 20
-      idle-timeout: 30000
-      max-lifetime: 1800000
-      connection-timeout: 30000
-      pool-name: HikariPool-Orcamento
-
+  jackson:
+    date-format: yyyy-MM-dd
+    time-zone: UTC
+    deserialization:
+      ADJUST_DATES_TO_CONTEXT_TIME_ZONE: false
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
   jpa:
-    database-platform: org.hibernate.dialect.MySQLDialect
-    hibernate:
-      ddl-auto: update
     show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
         jdbc:
           time_zone: UTC
 
-  jackson:
-    date-format: yyyy-MM-dd
-    time-zone: UTC
-    deserialization:
-      ADJUST_DATES_TO_CONTEXT_TIME_ZONE: false
-
-  servlet:
-    multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
-
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: noreplay.meuorcamento@gmail.com
-    password: eivo ottt pjzn vsdb
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-    from: noreplay.meuorcamento@gmail.com
-
 server:
-  port: 8045
+  port: ${SERVER_PORT:8045}
 
 springdoc:
   api-docs:
@@ -80,17 +40,21 @@ logging:
     org.springframework.security: INFO
 
 jwt:
+  secret: ${JWT_SECRET:Jm9eL/WB+KdOdPMFqg6XjQlvFZHYck1/b6+zp9h9x8A=}
   expiration:
-    ms: 1800000
+    ms: ${JWT_EXPIRATION_MS:1800000}
+  refresh:
+    expiration:
+      ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 file:
-  upload-dir: ./uploads
+  upload-dir: ${FILE_UPLOAD_DIR:./uploads}
 
 notificacoes:
   despesas:
-    enabled: true
-    dias-antecedencia: 7
-    cron: "0 0 12 * * *"
+    enabled: ${NOTIFICACOES_DESPESAS_ENABLED:true}
+    dias-antecedencia: ${NOTIFICACOES_DESPESAS_DIAS_ANTECEDENCIA:7}
+    cron: ${NOTIFICACOES_DESPESAS_CRON:0 0 12 * * *}
 
 management:
   health:
@@ -100,3 +64,31 @@ management:
     web:
       exposure:
         include: health,info,prometheus
+
+app:
+  cors:
+    allowed-origin-patterns:
+      - http://orcamento.local
+      - http://localhost:*
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      - PATCH
+    allowed-headers:
+      - "*"
+    exposed-headers:
+      - Authorization
+      - Content-Disposition
+    allow-credentials: false
+    max-age: 3600
+  bootstrap:
+    admin:
+      enabled: false
+      username:
+      email:
+      nome:
+      tenant-id:
+      password-hash:

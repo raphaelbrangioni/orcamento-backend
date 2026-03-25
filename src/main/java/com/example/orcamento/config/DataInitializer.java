@@ -7,31 +7,41 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer {
+
     private final UsuarioRepository usuarioRepository;
+    private final AdminBootstrapProperties adminBootstrapProperties;
 
     @Bean
+    @Profile({"dev", "hml"})
     public CommandLineRunner initAdminUser() {
         return args -> {
-            if (usuarioRepository.count() == 0) {
-                Usuario admin = new Usuario();
-                admin.setUsername("admin");
-                admin.setEmail("raphaelbrangioni@gmail.com");
-                admin.setNome("Raphael Brangioni");
-                admin.setTenantId("06660607625");
-                // Senha: admin123 (BCrypt hash)
-                admin.setAtivo(true);
-                admin.setAdmin(true);
-                admin.setPassword("$2a$10$KElqWlIeyRvdQOf1G9tLiOAS5u/z8fRDmJ5ysFi0a2ToxWGoHEbeW");
-                usuarioRepository.save(admin);
-                log.info("Usuário admin criado automaticamente no banco de dados.");
-            } else {
-                log.info("Usuários já existem no banco. Nenhum usuário admin criado.");
+            if (!adminBootstrapProperties.isEnabled()) {
+                log.info("Bootstrap de admin desabilitado para o ambiente atual.");
+                return;
             }
+
+            if (usuarioRepository.count() > 0) {
+                log.info("Usuarios ja existem no banco. Nenhum usuario admin criado.");
+                return;
+            }
+
+            Usuario admin = new Usuario();
+            admin.setUsername(adminBootstrapProperties.getUsername());
+            admin.setEmail(adminBootstrapProperties.getEmail());
+            admin.setNome(adminBootstrapProperties.getNome());
+            admin.setTenantId(adminBootstrapProperties.getTenantId());
+            admin.setAtivo(true);
+            admin.setAdmin(true);
+            admin.setPassword(adminBootstrapProperties.getPasswordHash());
+
+            usuarioRepository.save(admin);
+            log.info("Usuario admin criado automaticamente no banco de dados.");
         };
     }
 }

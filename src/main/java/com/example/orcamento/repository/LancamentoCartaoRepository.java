@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCartao, Long> , JpaSpecificationExecutor<LancamentoCartao> {
 
@@ -105,6 +106,8 @@ public interface LancamentoCartaoRepository extends JpaRepository<LancamentoCart
     List<LancamentoCartao> findByProprietarioAndMesAnoFaturaAndTenantId(String proprietario, String mesAnoFatura, String tenantId);
 
     List<LancamentoCartao> findByTenantId(String tenantId);
+    Optional<LancamentoCartao> findByIdAndTenantId(Long id, String tenantId);
+    void deleteByIdAndTenantId(Long id, String tenantId);
 
     @Modifying
     @Query("DELETE FROM LancamentoCartao l WHERE l.compra.id = :compraId AND l.tenantId = :tenantId")

@@ -3,6 +3,7 @@ package com.example.orcamento.mapper;
 import com.example.orcamento.dto.CompraDTO;
 import com.example.orcamento.dto.CompraTerceiroDTO;
 import com.example.orcamento.model.Compra;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
@@ -28,7 +29,7 @@ public class CompraMapper {
         dto.setClassificacao(compra.getClassificacao() != null ? compra.getClassificacao().name() : null);
         dto.setVariabilidade(compra.getVariabilidade() != null ? compra.getVariabilidade().name() : null);
 
-        if (compra.getTerceiros() != null) {
+        if (Hibernate.isInitialized(compra.getTerceiros()) && compra.getTerceiros() != null) {
             dto.setTerceiros(compra.getTerceiros().stream().map(terceiro -> {
                 CompraTerceiroDTO terceiroDTO = new CompraTerceiroDTO();
                 terceiroDTO.setPessoaId(terceiro.getPessoa().getId());

@@ -1,6 +1,8 @@
 package com.example.orcamento.security;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,13 +16,14 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET_KEY = "Jm9eL/WB+KdOdPMFqg6XjQlvFZHYck1/b6+zp9h9x8A="; // 🔹 Chave válida (Gerada com openssl)
+    @Value("${jwt.secret:Jm9eL/WB+KdOdPMFqg6XjQlvFZHYck1/b6+zp9h9x8A=}")
+    private String secretKey;
 
-    @Value("${jwt.expiration.ms:1800000}") // 30 minutos padrão
+    @Value("${jwt.expiration.ms:1800000}")
     private long jwtExpirationMs;
 
     private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -51,7 +54,7 @@ public class JwtUtil {
 
     public boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
     public String extractTenantId(String token) {

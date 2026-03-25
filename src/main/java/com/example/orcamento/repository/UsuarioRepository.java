@@ -10,6 +10,9 @@ import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByUsername(String username);
+    Optional<Usuario> findByUsernameAndTenantId(String username, String tenantId);
+    Optional<Usuario> findByIdAndTenantId(Long id, String tenantId);
+    List<Usuario> findByTenantId(String tenantId);
 
      @Query("SELECT DISTINCT u.tenantId FROM Usuario u")
      List<String> findDistinctTenantIds();

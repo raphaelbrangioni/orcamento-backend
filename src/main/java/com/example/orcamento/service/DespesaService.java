@@ -1,9 +1,14 @@
-// src/main/java/com/example/orcamento/service/DespesaService.java
 package com.example.orcamento.service;
 
 import com.example.orcamento.dto.ConfiguracaoDTO;
 import com.example.orcamento.dto.dashboard.DespesasMensaisDTO;
-import com.example.orcamento.model.*;
+import com.example.orcamento.model.ContaCorrente;
+import com.example.orcamento.model.Despesa;
+import com.example.orcamento.model.LancamentoCartao;
+import com.example.orcamento.model.MetaEconomia;
+import com.example.orcamento.model.Movimentacao;
+import com.example.orcamento.model.SubcategoriaDespesa;
+import com.example.orcamento.model.TipoMovimentacao;
 import com.example.orcamento.model.enums.FormaDePagamento;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
@@ -21,7 +26,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,43 +60,38 @@ public class DespesaService {
     @Transactional
     public Despesa salvarDespesa(Despesa despesa) {
         if (despesa.getContaCorrente() != null && despesa.getContaCorrente().getId() == null) {
-            throw new IllegalArgumentException("Conta corrente inválida para salvar a despesa");
+            throw new IllegalArgumentException("Conta corrente invalida para salvar a despesa");
         }
         if (despesa.getValorPrevisto() == null || despesa.getValorPrevisto().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor previsto da despesa deve ser maior que zero");
         }
 
-        // Associar subcategoria diretamente (novo fluxo simplificado)
         if (despesa.getSubcategoria() != null && despesa.getSubcategoria().getId() != null) {
-            SubcategoriaDespesa subcategoria = subcategoriaDespesaRepository.findById(despesa.getSubcategoria().getId())
-                .orElseThrow(() -> new EntityNotFoundException("Subcategoria não encontrada"));
+            SubcategoriaDespesa subcategoria = buscarSubcategoriaPorId(despesa.getSubcategoria().getId());
             despesa.setSubcategoria(subcategoria);
         } else {
-            throw new IllegalArgumentException("Subcategoria obrigatória para despesa");
+            throw new IllegalArgumentException("Subcategoria obrigatoria para despesa");
         }
 
         log.info("Salvando uma despesa: {}", despesa);
-        // Garante que a despesa salva pertence ao tenant logado
         despesa.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
         Despesa despesaSalva = despesaRepository.save(despesa);
 
-        // Integração com MetaEconomia
         ConfiguracaoDTO configuracao = configuracaoService.getConfiguracoes();
-        if (configuracao != null &&
-                configuracao.getTipoDespesaInvestimentoId() != null &&
-                despesaSalva.getMetaEconomia() != null &&
-                despesaSalva.getValorPago() != null &&
-                despesaSalva.getDataPagamento() != null) {
+        if (configuracao != null
+                && configuracao.getTipoDespesaInvestimentoId() != null
+                && despesaSalva.getMetaEconomia() != null
+                && despesaSalva.getValorPago() != null
+                && despesaSalva.getDataPagamento() != null) {
 
-            log.info("Integração com MetaEconomia............ Atualizando: {}", despesa.getMetaEconomia());
+            log.info("Integracao com MetaEconomia. Atualizando: {}", despesa.getMetaEconomia());
 
             MetaEconomia meta = metaEconomiaService.buscarPorId(despesaSalva.getMetaEconomia().getId())
-                    .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada"));
+                    .orElseThrow(() -> new EntityNotFoundException("Meta nao encontrada"));
             meta.setValorEconomizado(meta.getValorEconomizado() + despesaSalva.getValorPago().doubleValue());
             metaEconomiaService.salvarMeta(meta);
         }
 
-        // Se já tiver pagamento, registra a movimentação
         if (despesaSalva.getValorPago() != null && despesaSalva.getDataPagamento() != null && despesaSalva.getContaCorrente() != null) {
             Movimentacao movimentacao = Movimentacao.builder()
                     .tipo(TipoMovimentacao.SAIDA)
@@ -107,16 +111,16 @@ public class DespesaService {
     @Transactional
     public Despesa criarDespesaComPagamento(Despesa despesa, BigDecimal valorPago, LocalDate dataPagamento, Long contaCorrenteId, Long metaEconomiaId, FormaDePagamento formaPagamento) {
         if (despesa == null) {
-            throw new IllegalArgumentException("Despesa é obrigatória");
+            throw new IllegalArgumentException("Despesa e obrigatoria");
         }
         if (valorPago == null || valorPago.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("valorPago é obrigatório e deve ser maior que zero");
+            throw new IllegalArgumentException("valorPago e obrigatorio e deve ser maior que zero");
         }
         if (dataPagamento == null) {
-            throw new IllegalArgumentException("dataPagamento é obrigatória");
+            throw new IllegalArgumentException("dataPagamento e obrigatoria");
         }
         if (contaCorrenteId == null) {
-            throw new IllegalArgumentException("contaCorrenteId é obrigatório");
+            throw new IllegalArgumentException("contaCorrenteId e obrigatorio");
         }
 
         despesa.setValorPago(valorPago);
@@ -124,12 +128,12 @@ public class DespesaService {
         despesa.setFormaDePagamento(formaPagamento);
 
         ContaCorrente conta = contaCorrenteService.buscarPorId(contaCorrenteId)
-                .orElseThrow(() -> new IllegalArgumentException("Conta não encontrada: " + contaCorrenteId));
+                .orElseThrow(() -> new IllegalArgumentException("Conta nao encontrada: " + contaCorrenteId));
         despesa.setContaCorrente(conta);
 
         if (metaEconomiaId != null) {
             MetaEconomia meta = metaEconomiaService.buscarPorId(metaEconomiaId)
-                    .orElseThrow(() -> new IllegalArgumentException("Meta não encontrada: " + metaEconomiaId));
+                    .orElseThrow(() -> new IllegalArgumentException("Meta nao encontrada: " + metaEconomiaId));
             despesa.setMetaEconomia(meta);
         }
 
@@ -139,24 +143,19 @@ public class DespesaService {
     @Transactional
     public void excluirDespesa(Long id) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        Despesa despesa = despesaRepository.findById(id)
-                .filter(d -> tenantId.equals(d.getTenantId()))
-                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada ou não pertence ao tenant atual"));
+        Despesa despesa = buscarDespesaPorId(id);
 
         log.info("Excluindo a despesa: {}", despesa);
 
-        // Exclui o anexo, se existir
         if (despesa.getAnexo() != null && !despesa.getAnexo().isEmpty()) {
             fileStorageService.deleteFile(despesa.getAnexo());
         }
 
-        // Remove as movimentações associadas à despesa
         List<Movimentacao> movimentacoes = movimentacaoRepository.findByDespesa(despesa);
         if (!movimentacoes.isEmpty()) {
             movimentacaoRepository.deleteAll(movimentacoes);
         }
 
-        // Se já foi paga, registra uma movimentação de entrada para "estornar" o saldo
         if (despesa.getValorPago() != null && despesa.getDataPagamento() != null && despesa.getContaCorrente() != null) {
             Movimentacao movimentacao = Movimentacao.builder()
                     .tipo(TipoMovimentacao.ENTRADA)
@@ -169,7 +168,7 @@ public class DespesaService {
             movimentacaoService.registrarMovimentacao(movimentacao);
         }
 
-        despesaRepository.deleteById(id);
+        despesaRepository.deleteByIdAndTenantId(id, tenantId);
     }
 
     public List<Despesa> listarPorSubcategoria(Long subcategoriaId) {
@@ -179,11 +178,10 @@ public class DespesaService {
 
     @Transactional
     public Despesa atualizarPagamento(Long id, BigDecimal valorPago, LocalDate dataPagamento, Long contaCorrenteId, Long metaEconomiaId, FormaDePagamento formaPagamento) {
-        Despesa despesa = despesaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada"));
+        Despesa despesa = buscarDespesaPorId(id);
 
         if (despesa.getDataPagamento() != null) {
-            throw new IllegalStateException("Despesa já foi paga");
+            throw new IllegalStateException("Despesa ja foi paga");
         }
 
         despesa.setValorPago(valorPago);
@@ -192,7 +190,7 @@ public class DespesaService {
 
         if (contaCorrenteId != null) {
             ContaCorrente conta = contaCorrenteService.buscarPorId(contaCorrenteId)
-                    .orElseThrow(() -> new IllegalArgumentException("Conta não encontrada: " + contaCorrenteId));
+                    .orElseThrow(() -> new IllegalArgumentException("Conta nao encontrada: " + contaCorrenteId));
             despesa.setContaCorrente(conta);
 
             Movimentacao movimentacao = Movimentacao.builder()
@@ -207,11 +205,8 @@ public class DespesaService {
             movimentacaoService.registrarMovimentacao(movimentacao);
         }
 
-        // Lógica de integração com MetaEconomia (Refatorada)
         if (despesa.getMetaEconomia() != null && despesa.getSubcategoria() != null) {
             SubcategoriaDespesa subcategoria = despesa.getSubcategoria();
-            // Assumindo que SubcategoriaDespesa tem uma referência para CategoriaDespesa
-            // e que o nome da categoria de investimentos é "Investimentos"
             if (subcategoria.getCategoria() != null && "Investimentos".equalsIgnoreCase(subcategoria.getCategoria().getNome())) {
                 log.info("Despesa de investimento identificada. Atualizando a meta de economia...");
                 MetaEconomia meta = despesa.getMetaEconomia();
@@ -219,10 +214,10 @@ public class DespesaService {
                 metaEconomiaService.salvarMeta(meta);
                 log.info("Meta de economia atualizada com sucesso.");
             } else {
-                log.info("Despesa não é da categoria 'Investimentos'. Nenhuma meta foi atualizada.");
+                log.info("Despesa nao e da categoria 'Investimentos'. Nenhuma meta foi atualizada.");
             }
         } else {
-            log.info("Despesa não está associada a uma meta ou subcategoria. Nenhuma meta foi atualizada.");
+            log.info("Despesa nao esta associada a uma meta ou subcategoria. Nenhuma meta foi atualizada.");
         }
 
         return despesaRepository.save(despesa);
@@ -236,15 +231,11 @@ public class DespesaService {
     @Transactional
     public Despesa atualizarDespesa(Long id, Despesa despesaAtualizada, MultipartFile anexo) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        Despesa despesa = despesaRepository.findById(id)
-                .filter(d -> tenantId.equals(d.getTenantId()))
-                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada ou não pertence ao tenant atual"));
+        Despesa despesa = buscarDespesaPorId(id);
 
         log.info("Atualizando despesa: {} para {}", despesa, despesaAtualizada);
 
-        // Lógica de anexo
         if (anexo != null && !anexo.isEmpty()) {
-            // Se já existe um anexo, exclui o antigo
             if (despesa.getAnexo() != null && !despesa.getAnexo().isEmpty()) {
                 fileStorageService.deleteFile(despesa.getAnexo());
             }
@@ -252,12 +243,10 @@ public class DespesaService {
             despesa.setAnexo(fileName);
         }
 
-        // Preserva os dados de pagamento originais
         BigDecimal valorPagoOriginal = despesa.getValorPago();
         LocalDate dataPagamentoOriginal = despesa.getDataPagamento();
         ContaCorrente contaCorrenteOriginal = despesa.getContaCorrente();
 
-        // Atualiza os campos da despesa (exceto pagamento)
         despesa.setNome(despesaAtualizada.getNome());
         despesa.setValorPrevisto(despesaAtualizada.getValorPrevisto());
         despesa.setDataVencimento(despesaAtualizada.getDataVencimento());
@@ -265,23 +254,21 @@ public class DespesaService {
         despesa.setDetalhes(despesaAtualizada.getDetalhes());
         despesa.setSubcategoria(despesaAtualizada.getSubcategoria());
 
-        // Associar subcategoria diretamente (novo fluxo simplificado)
         if (despesaAtualizada.getSubcategoria() != null && despesaAtualizada.getSubcategoria().getId() != null) {
-            SubcategoriaDespesa subcategoria = subcategoriaDespesaRepository.findById(despesaAtualizada.getSubcategoria().getId())
-                .orElseThrow(() -> new EntityNotFoundException("Subcategoria não encontrada"));
+            SubcategoriaDespesa subcategoria = buscarSubcategoriaPorId(despesaAtualizada.getSubcategoria().getId());
             despesa.setSubcategoria(subcategoria);
         } else {
-            throw new IllegalArgumentException("Subcategoria obrigatória para despesa");
+            throw new IllegalArgumentException("Subcategoria obrigatoria para despesa");
         }
 
         despesa.setClassificacao(despesaAtualizada.getClassificacao());
         despesa.setVariabilidade(despesaAtualizada.getVariabilidade());
         despesa.setFormaDePagamento(despesaAtualizada.getFormaDePagamento());
 
-        // Restaura os dados de pagamento originais
         despesa.setValorPago(valorPagoOriginal);
         despesa.setDataPagamento(dataPagamentoOriginal);
         despesa.setContaCorrente(contaCorrenteOriginal);
+        despesa.setTenantId(tenantId);
 
         log.info("Despesa atualizada: {}", despesa);
 
@@ -323,7 +310,6 @@ public class DespesaService {
     public Map<Long, Double> calcularGastosPorCategoria(Integer ano, Integer mes) {
         log.info("Calculando gastos por categoria para ano={}, mes={}", ano, mes);
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        // 1. Gastos das despesas comuns
         List<Despesa> despesas = despesaRepository.findByAnoAndMes(tenantId, ano, mes);
         log.info("Despesas encontradas: {}", despesas.size());
         Map<Long, Double> gastosPorCategoria = new HashMap<>();
@@ -335,10 +321,9 @@ public class DespesaService {
             gastosPorCategoria.put(categoriaId, gastosPorCategoria.getOrDefault(categoriaId, 0.0) + valorDouble);
         }
 
-        // 2. Gastos das faturas de cartão (não lançadas como despesa)
         String tenantIdCartao = com.example.orcamento.security.TenantContext.getTenantId();
         List<LancamentoCartao> lancamentos = lancamentoCartaoRepository.findByAnoAndMesAndTenantId(ano, mes, tenantIdCartao);
-        log.info("Lançamentos de cartão encontrados: {}", lancamentos.size());
+        log.info("Lancamentos de cartao encontrados: {}", lancamentos.size());
         for (LancamentoCartao lancamento : lancamentos) {
             Long subcategoriaId = lancamento.getSubcategoria() != null ? lancamento.getSubcategoria().getId() : null;
             double valor = lancamento.getValorTotal().doubleValue();
@@ -364,17 +349,14 @@ public class DespesaService {
 
     public List<DespesasMensaisDTO> buscarDespesasPorAno(int ano) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        // Busca todas as despesas do ano informado
         List<Despesa> despesas = despesaRepository.findDespesasByAno(tenantId, ano);
 
-        // Agrupa as despesas por mês (usando Stream API)
         Map<Integer, List<Despesa>> despesasPorMes = despesas.stream()
                 .collect(Collectors.groupingBy(d -> d.getDataVencimento().getMonthValue()));
 
-        // Transforma o mapa em uma lista de DTOs
         return despesasPorMes.entrySet().stream()
                 .map(entry -> new DespesasMensaisDTO(entry.getKey(), entry.getValue()))
-                .sorted(Comparator.comparing(DespesasMensaisDTO::getMes)) // Ordena pelo número do mês
+                .sorted(Comparator.comparing(DespesasMensaisDTO::getMes))
                 .collect(Collectors.toList());
     }
 
@@ -390,28 +372,23 @@ public class DespesaService {
     @Transactional
     public void excluirDespesasPorDespesaParceladaId(Long despesaParceladaId) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        // Buscar todas as despesas que são parcelas desta despesa parcelada
         List<Despesa> parcelas = despesaRepository.findByDespesaParceladaId(tenantId, despesaParceladaId);
 
-        // Excluir cada parcela
         for (Despesa parcela : parcelas) {
             excluirDespesa(parcela.getId());
         }
 
-        log.info("Excluídas {} parcelas associadas à despesa parcelada ID {}", parcelas.size(), despesaParceladaId);
+        log.info("Excluidas {} parcelas associadas a despesa parcelada ID {}", parcelas.size(), despesaParceladaId);
     }
 
     @Transactional
     public Despesa estornarPagamento(Long id) {
-        Despesa despesa = despesaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Despesa não encontrada"));
+        Despesa despesa = buscarDespesaPorId(id);
 
-        // Verifica se existe pagamento
         if (despesa.getValorPago() == null || despesa.getDataPagamento() == null || despesa.getContaCorrente() == null) {
-            throw new IllegalStateException("Despesa não possui pagamento para estornar");
+            throw new IllegalStateException("Despesa nao possui pagamento para estornar");
         }
 
-        // Cria movimentação de estorno
         Movimentacao movimentacaoEntrada = Movimentacao.builder()
                 .tipo(TipoMovimentacao.ENTRADA)
                 .valor(despesa.getValorPago())
@@ -424,16 +401,15 @@ public class DespesaService {
 
         movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
 
-        // Se for despesa de investimento, estorna também na meta de economia
         ConfiguracaoDTO configuracao = configuracaoService.getConfiguracoes();
-        if (configuracao != null &&
-                configuracao.getTipoDespesaInvestimentoId() != null &&
-                despesa.getSubcategoria() != null &&
-                despesa.getSubcategoria().getId().equals(configuracao.getTipoDespesaInvestimentoId()) &&
-                despesa.getMetaEconomia() != null) {
+        if (configuracao != null
+                && configuracao.getTipoDespesaInvestimentoId() != null
+                && despesa.getSubcategoria() != null
+                && despesa.getSubcategoria().getId().equals(configuracao.getTipoDespesaInvestimentoId())
+                && despesa.getMetaEconomia() != null) {
 
             MetaEconomia meta = metaEconomiaService.buscarPorId(despesa.getMetaEconomia().getId())
-                    .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada"));
+                    .orElseThrow(() -> new EntityNotFoundException("Meta nao encontrada"));
             meta.setValorEconomizado(meta.getValorEconomizado() - despesa.getValorPago().doubleValue());
             metaEconomiaService.salvarMeta(meta);
 
@@ -441,7 +417,6 @@ public class DespesaService {
                     meta.getNome(), meta.getValorEconomizado());
         }
 
-        // Limpa os dados de pagamento
         despesa.setValorPago(null);
         despesa.setDataPagamento(null);
         despesa.setContaCorrente(null);
@@ -450,11 +425,9 @@ public class DespesaService {
     }
 
     public List<Despesa> buscarDespesasRelacionadas(Long metaId) {
-        // Verificar se a meta existe
-        MetaEconomia meta = metaEconomiaService.buscarPorId(metaId)
-                .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada com ID: " + metaId));
+        metaEconomiaService.buscarPorId(metaId)
+                .orElseThrow(() -> new EntityNotFoundException("Meta nao encontrada com ID: " + metaId));
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        // Buscar despesas relacionadas
         return despesaRepository.findByMetaEconomiaId(tenantId, metaId);
     }
 
@@ -465,12 +438,12 @@ public class DespesaService {
 
     public boolean verificarFaturaLancada(String nomeCartao, int mes, int ano) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        String nomeBusca = "Fatura Cartão " + nomeCartao;
+        String nomeBusca = "Fatura Cartao " + nomeCartao;
         return despesaRepository.existsByNomeLikeAndMesAndAno(tenantId, nomeBusca, mes, ano);
     }
 
     public List<Despesa> listarDespesasPorFiltrosDinamicos(Map<String, Object> filtros) {
-        log.info("Buscando despesas com filtros dinâmicos: {}", filtros);
+        log.info("Buscando despesas com filtros dinamicos: {}", filtros);
         Map<String, Object> filtrosMapeados = new HashMap<>();
         filtros.forEach((key, value) -> {
             switch (key) {
@@ -479,7 +452,7 @@ public class DespesaService {
                 case "tipoDespesaId" -> filtrosMapeados.put("subcategoriaId", value);
                 case "dataInicio" -> filtrosMapeados.put("dataVencimentoInicio", value);
                 case "dataFim" -> filtrosMapeados.put("dataVencimentoFim", value);
-                default -> filtrosMapeados.put(key, value); // id, detalhes, classificacao, variabilidade, parcela
+                default -> filtrosMapeados.put(key, value);
             }
         });
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
@@ -493,7 +466,14 @@ public class DespesaService {
     }
 
     public SubcategoriaDespesa buscarSubcategoriaPorId(Long subcategoriaId) {
-        return subcategoriaDespesaRepository.findById(subcategoriaId)
-                .orElseThrow(() -> new EntityNotFoundException("Subcategoria não encontrada: " + subcategoriaId));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return subcategoriaDespesaRepository.findByIdAndTenantId(subcategoriaId, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Subcategoria nao encontrada: " + subcategoriaId));
+    }
+
+    private Despesa buscarDespesaPorId(Long id) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return despesaRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Despesa nao encontrada ou nao pertence ao tenant atual"));
     }
 }

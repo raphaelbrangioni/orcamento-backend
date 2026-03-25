@@ -21,8 +21,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/tipos-despesa_XX")
 @RequiredArgsConstructor
-//@CrossOrigin(origins = "http://localhost:8080")
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class TipoDespesaController {
 

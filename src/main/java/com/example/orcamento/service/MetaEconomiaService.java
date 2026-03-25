@@ -41,8 +41,8 @@ public class MetaEconomiaService {
     public MetaEconomia salvarMeta(MetaEconomiaRequestDTO dto) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
 
-        SubcategoriaDespesa tipoInvestimento = subcategoriaRepository.findById(dto.getTipoInvestimentoId())
-                .orElseThrow(() -> new EntityNotFoundException("Tipo de investimento (Subcategoria) não encontrado com ID: " + dto.getTipoInvestimentoId()));
+        SubcategoriaDespesa tipoInvestimento = subcategoriaRepository.findByIdAndTenantId(dto.getTipoInvestimentoId(), tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tipo de investimento (Subcategoria) nao encontrado com ID: " + dto.getTipoInvestimentoId()));
 
         MetaEconomia meta = new MetaEconomia();
         meta.setNome(dto.getNome());
@@ -62,10 +62,10 @@ public class MetaEconomiaService {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
 
         MetaEconomia metaExistente = repository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada com ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Meta nao encontrada com ID: " + id));
 
-        SubcategoriaDespesa tipoInvestimento = subcategoriaRepository.findById(dto.getTipoInvestimentoId())
-                .orElseThrow(() -> new EntityNotFoundException("Tipo de investimento (Subcategoria) não encontrado com ID: " + dto.getTipoInvestimentoId()));
+        SubcategoriaDespesa tipoInvestimento = subcategoriaRepository.findByIdAndTenantId(dto.getTipoInvestimentoId(), tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tipo de investimento (Subcategoria) nao encontrado com ID: " + dto.getTipoInvestimentoId()));
 
         metaExistente.setNome(dto.getNome());
         metaExistente.setValor(dto.getValor());
@@ -92,23 +92,19 @@ public class MetaEconomiaService {
     @Transactional
     public MetaEconomia atualizarFracaoBitcoin(Long id, Double fracaoBitcoin) {
         MetaEconomia meta = repository.findByIdAndTenantId(id, com.example.orcamento.security.TenantContext.getTenantId())
-                .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Meta nao encontrada: " + id));
         meta.setFracaoCripto(fracaoBitcoin);
         return repository.save(meta);
     }
 
-    // No MetaEconomiaService.java
     @Transactional
     public int desassociarDespesas(Long metaId) {
-        // Verificar se a meta existe
-        MetaEconomia meta = buscarPorId(metaId)
-                .orElseThrow(() -> new EntityNotFoundException("Meta não encontrada com ID: " + metaId));
+        buscarPorId(metaId)
+                .orElseThrow(() -> new EntityNotFoundException("Meta nao encontrada com ID: " + metaId));
 
-        // Buscar todas as despesas associadas a esta meta
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         List<Despesa> despesas = despesaRepository.findByMetaEconomiaId(tenantId, metaId);
 
-        // Remover a associação com a meta
         for (Despesa despesa : despesas) {
             despesa.setMetaEconomia(null);
             despesaRepository.save(despesa);
@@ -119,17 +115,14 @@ public class MetaEconomiaService {
 
     @Transactional
     public void excluirMetaComDespesas(Long metaId) {
-        // Buscar todas as despesas associadas a esta meta
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         List<Despesa> despesas = despesaRepository.findByMetaEconomiaId(tenantId, metaId);
 
-        // Remover a associação
         for (Despesa despesa : despesas) {
             despesa.setMetaEconomia(null);
             despesaRepository.save(despesa);
         }
 
-        // Excluir a meta
         repository.deleteByIdAndTenantId(metaId, tenantId);
     }
 }

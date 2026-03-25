@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/despesas-parceladas")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class DespesaParceladaController {
 

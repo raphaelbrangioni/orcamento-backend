@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DespesaRepository extends JpaRepository<Despesa, Long>, JpaSpecificationExecutor<Despesa> {
@@ -80,5 +81,8 @@ public interface DespesaRepository extends JpaRepository<Despesa, Long>, JpaSpec
 
     @Query("SELECT CASE WHEN COUNT(d) > 0 THEN TRUE ELSE FALSE END FROM Despesa d WHERE d.tenantId = :tenantId AND d.nome LIKE %:nome% AND YEAR(d.dataVencimento) = :ano AND MONTH(d.dataVencimento) = :mes")
     boolean existsByNomeLikeAndMesAndAno(@Param("tenantId") String tenantId, @Param("nome") String nome, @Param("mes") int mes, @Param("ano") int ano);
+
+    Optional<Despesa> findByIdAndTenantId(Long id, String tenantId);
+    void deleteByIdAndTenantId(Long id, String tenantId);
 
 }

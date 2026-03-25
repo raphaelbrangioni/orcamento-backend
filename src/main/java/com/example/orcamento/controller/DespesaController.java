@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/despesas")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class DespesaController {
 

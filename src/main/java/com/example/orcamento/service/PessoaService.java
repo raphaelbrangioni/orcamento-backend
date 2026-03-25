@@ -2,6 +2,7 @@ package com.example.orcamento.service;
 
 import com.example.orcamento.model.Pessoa;
 import com.example.orcamento.repository.PessoaRepository;
+import com.example.orcamento.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,16 +17,17 @@ public class PessoaService {
     private final PessoaRepository repository;
 
     public List<Pessoa> findAll() {
-        return repository.findAll();
+        return repository.findByTenantId(TenantContext.getTenantId());
     }
 
     public Pessoa findById(Long id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Pessoa não encontrada com o id: " + id));
+        return repository.findByIdAndTenantId(id, TenantContext.getTenantId())
+                .orElseThrow(() -> new EntityNotFoundException("Pessoa nao encontrada com o id: " + id));
     }
 
     @Transactional
     public Pessoa save(Pessoa pessoa) {
+        pessoa.setTenantId(TenantContext.getTenantId());
         return repository.save(pessoa);
     }
 

@@ -15,8 +15,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/relatorios")
 @RequiredArgsConstructor
-//@CrossOrigin(origins = "http://localhost:8080")
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class RelatorioController {
 

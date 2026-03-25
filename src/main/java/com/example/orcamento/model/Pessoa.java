@@ -24,6 +24,9 @@ public class Pessoa {
 
     private String observacao;
 
+    @Column(nullable = false)
+    private String tenantId;
+
     @Builder.Default
     @Column(nullable = false)
     private boolean ativo = true;

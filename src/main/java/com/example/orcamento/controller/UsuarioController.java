@@ -28,8 +28,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor  // Lombok injeta automaticamente o service
-//@CrossOrigin(origins = "http://localhost:8080")
-@CrossOrigin(origins = "http://localhost")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
@@ -145,7 +143,7 @@ public class UsuarioController {
     // Método para obter um usuário por username
     @GetMapping("/users/username/{username}")
     public ResponseEntity<UsuarioDTO> obterUsuarioPorUsername(@PathVariable String username) {
-        Usuario usuario = usuarioService.obterUsuarioPorUsername(username);
+        Usuario usuario = usuarioService.obterUsuarioPorUsernameDoTenant(username);
 
         //log.info("Usuário encontrado: {}", usuario);
         if (usuario == null) {
@@ -214,7 +212,6 @@ public class UsuarioController {
         Usuario usuarioAtualizado = new Usuario();
         usuarioAtualizado.setUsername(usuarioDTO.getUsername());
         usuarioAtualizado.setEmail(usuarioDTO.getEmail());
-        usuarioAtualizado.setTenantId(usuarioDTO.getTenantId());
         usuarioAtualizado.setPassword(usuarioDTO.getPassword());
         usuarioAtualizado.setAtivo(usuarioDTO.isAtivo());
         usuarioAtualizado.setAdmin(usuarioDTO.isAdmin());
@@ -229,7 +226,7 @@ public class UsuarioController {
         if (!"06660607625".equals(tenantId)) {
             return ResponseEntity.status(403).build();
         }
-        List<Usuario> usuarios = usuarioService.listarUsuarios();
+        List<Usuario> usuarios = usuarioService.listarTodosUsuarios();
         List<UsuarioDTO> usuariosDTO = new ArrayList<>();
         for (Usuario u : usuarios) {
 //            log.info("Usuario do banco: id={}, username={}, ativo={}, admin={}, email={}, tenantId={}, dataCadastro={}, dataPrimeiroLogin={}",
@@ -257,7 +254,7 @@ public class UsuarioController {
     // Endpoint para consultar acessos dos usuários
     @GetMapping("/acessos-usuarios")
     public ResponseEntity<List<UsuarioAcessosDTO>> listarAcessosUsuarios() {
-        List<Usuario> usuarios = usuarioService.listarUsuarios();
+        List<Usuario> usuarios = usuarioService.listarTodosUsuarios();
         List<UsuarioAcessosDTO> acessos = acessoUsuarioService.listarAcessosPorUsuario(usuarios);
         return ResponseEntity.ok(acessos);
     }

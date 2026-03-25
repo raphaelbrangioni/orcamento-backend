@@ -23,7 +23,6 @@ import java.util.Locale;
 @RestController
 @RequestMapping("/api/v1/transacoes")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class TransacaoFinanceiraController {
 

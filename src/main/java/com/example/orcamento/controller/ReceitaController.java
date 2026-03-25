@@ -15,7 +15,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/receitas")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class ReceitaController {
 

@@ -1,4 +1,3 @@
-// src/main/java/com/example/orcamento/service/ReceitaService.java
 package com.example.orcamento.service;
 
 import com.example.orcamento.model.Movimentacao;
@@ -13,9 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,7 +36,7 @@ public class ReceitaService {
     public Receita salvarReceita(Receita receita) {
         receita.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
         if (receita.getContaCorrente() == null || receita.getContaCorrente().getId() == null) {
-            throw new IllegalArgumentException("Conta corrente é obrigatória para salvar a receita");
+            throw new IllegalArgumentException("Conta corrente e obrigatoria para salvar a receita");
         }
         if (receita.getValor() == null || receita.getValor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor da receita deve ser maior que zero");
@@ -46,13 +45,11 @@ public class ReceitaService {
         log.info("Receita recebida do frontend: {}", receita);
         log.info("Valor de isPrevista recebido: {}", receita.isPrevista());
 
-        // Salva a receita primeiro para obter o ID
         Receita receitaSalva = receitaRepository.save(receita);
 
         log.info("Receita salva no banco: {}", receitaSalva);
-        log.info("Valor de isPrevista após salvar: {}", receitaSalva.isPrevista());
+        log.info("Valor de isPrevista apos salvar: {}", receitaSalva.isPrevista());
 
-        // Registra a movimentação apenas se não for prevista
         if (!receitaSalva.isPrevista()) {
             String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
             Movimentacao movimentacao = Movimentacao.builder()
@@ -74,22 +71,16 @@ public class ReceitaService {
     @Transactional
     public void excluirReceita(Long id) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        Receita receita = receitaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receita não encontrada com ID: " + id));
-        if (!tenantId.equals(receita.getTenantId())) {
-            throw new SecurityException("Acesso negado à receita de outro tenant.");
-        }
+        Receita receita = buscarReceitaPorId(id, tenantId);
 
         log.info("Excluindo a receita: {}", receita);
 
-        // Remove ou desassocia as movimentações existentes apenas se não for prevista
         if (!receita.isPrevista()) {
             List<Movimentacao> movimentacoes = movimentacaoRepository.findByReceita(receita);
             if (!movimentacoes.isEmpty()) {
-                movimentacaoRepository.deleteAll(movimentacoes); // Remove as movimentações existentes
+                movimentacaoRepository.deleteAll(movimentacoes);
             }
 
-            // Registra a movimentação de saída (correção)
             Movimentacao movimentacao = Movimentacao.builder()
                     .tipo(TipoMovimentacao.SAIDA)
                     .valor(receita.getValor())
@@ -102,18 +93,13 @@ public class ReceitaService {
             movimentacaoService.registrarMovimentacao(movimentacao);
         }
 
-        // Exclui a receita
-        receitaRepository.deleteById(id);
+        receitaRepository.deleteByIdAndTenantId(id, tenantId);
     }
 
     @Transactional
     public Receita atualizarReceita(Long id, Receita receitaAtualizada) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
-        Receita receita = receitaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receita não encontrada com ID: " + id));
-        if (!tenantId.equals(receita.getTenantId())) {
-            throw new SecurityException("Acesso negado à receita de outro tenant.");
-        }
+        Receita receita = buscarReceitaPorId(id, tenantId);
 
         boolean precisaRefazerMovimentacao = receita.isPrevista() != receitaAtualizada.isPrevista() ||
                 (receita.getValor() != null && !receita.getValor().equals(receitaAtualizada.getValor())) ||
@@ -169,9 +155,9 @@ public class ReceitaService {
         return receitaSalva;
     }
 
-    // src/main/java/com/example/orcamento/service/ReceitaService.java
     public Map<String, Map<String, BigDecimal>> listarReceitasPorMes(int ano) {
-        List<Receita> receitas = receitaRepository.findAll().stream()
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Receita> receitas = receitaRepository.findByTenantId(tenantId).stream()
                 .filter(r -> r.getDataRecebimento().getYear() == ano)
                 .collect(Collectors.toList());
 
@@ -193,7 +179,8 @@ public class ReceitaService {
     }
 
     public Map<String, Map<String, BigDecimal>> listarReceitasPorMesETipo(int ano) {
-        List<Receita> receitas = receitaRepository.findAll().stream()
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        List<Receita> receitas = receitaRepository.findByTenantId(tenantId).stream()
                 .filter(r -> r.getDataRecebimento().getYear() == ano)
                 .collect(Collectors.toList());
 
@@ -212,24 +199,22 @@ public class ReceitaService {
 
     @Transactional
     public Receita efetivarReceita(Long id) {
-        Receita receita = receitaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receita não encontrada com ID: " + id));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        Receita receita = buscarReceitaPorId(id, tenantId);
 
         if (!receita.isPrevista()) {
-            throw new IllegalStateException("A receita já está efetivada");
+            throw new IllegalStateException("A receita ja esta efetivada");
         }
 
         receita.setPrevista(false);
         Receita receitaAtualizada = receitaRepository.save(receita);
 
-        // Registra a movimentação ao efetivar
-        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         Movimentacao movimentacao = Movimentacao.builder()
                 .tipo(TipoMovimentacao.ENTRADA)
                 .valor(receita.getValor())
                 .contaCorrente(receita.getContaCorrente())
                 .receita(receitaAtualizada)
-                .descricao("Efetivação de receita: " + receita.getDescricao())
+                .descricao("Efetivacao de receita: " + receita.getDescricao())
                 .dataRecebimento(receita.getDataRecebimento())
                 .dataCadastro(LocalDateTime.now())
                 .tenantId(tenantId)
@@ -237,5 +222,10 @@ public class ReceitaService {
         movimentacaoService.registrarMovimentacao(movimentacao);
 
         return receitaAtualizada;
+    }
+
+    private Receita buscarReceitaPorId(Long id, String tenantId) {
+        return receitaRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Receita nao encontrada com ID: " + id));
     }
 }

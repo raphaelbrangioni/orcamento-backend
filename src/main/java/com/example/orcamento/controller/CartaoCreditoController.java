@@ -13,8 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/cartoes-credito")
 @RequiredArgsConstructor
-//@CrossOrigin(origins = "http://localhost:8080")
-@CrossOrigin(origins = "http://localhost")
 @Slf4j
 public class CartaoCreditoController {
     private final CartaoCreditoService cartaoCreditoService;

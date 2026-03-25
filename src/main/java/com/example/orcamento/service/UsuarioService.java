@@ -3,13 +3,12 @@ package com.example.orcamento.service;
 import com.example.orcamento.model.Usuario;
 import com.example.orcamento.repository.UsuarioRepository;
 import com.example.orcamento.security.JwtUtil;
-import com.example.orcamento.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.persistence.EntityNotFoundException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,34 +23,29 @@ public class UsuarioService {
     private final EmailService emailService;
 
     public String authenticate(String username, String password) {
-        // Buscar usuário no banco
         Usuario user = usuarioRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("Dados Invalidos"));
 
-        // Verifica a senha (agora usando `passwordEncoder.matches()`)
         if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new IllegalArgumentException("Usuário ou senha inválidos");
+            throw new IllegalArgumentException("Usuario ou senha invalidos");
         }
 
-        // Bloqueia login se não validou o token do primeiro login
         if (user.isPrimeiroLogin() || user.getDataPrimeiroLogin() == null) {
             throw new IllegalStateException("Primeiro acesso: valide o token enviado antes de acessar o sistema.");
         }
 
-        // Gera o token JWT incluindo o tenantId
         return jwtUtil.generateToken(username, user.getTenantId());
     }
 
     public Usuario criarUsuario(String username, String senha, String email, String tenantId) {
-        // Verifica se o usuário já existe
         if (usuarioRepository.findByUsername(username).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuário já existe!");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario ja existe!");
         }
 
         Usuario usuario = new Usuario();
         usuario.setUsername(username);
         usuario.setEmail(email);
-        usuario.setPassword(passwordEncoder.encode(senha)); // Criptografa a senha
+        usuario.setPassword(passwordEncoder.encode(senha));
         usuario.setTenantId(tenantId);
 
         return usuarioRepository.save(usuario);
@@ -59,7 +53,7 @@ public class UsuarioService {
 
     public Usuario criarUsuario(String username, String password, String nome, String email, String tenantId, boolean ativo, boolean admin, boolean primeiroLogin, String token) {
         if (usuarioRepository.findByUsername(username).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuário já existe!");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario ja existe!");
         }
         Usuario usuario = new Usuario();
         usuario.setUsername(username);
@@ -74,8 +68,8 @@ public class UsuarioService {
         usuario.setDataCadastro(LocalDateTime.now());
         usuario.setDataPrimeiroLogin(null);
         Usuario salvo = usuarioRepository.save(usuario);
-        // Envia e-mail de boas-vindas com formatação HTML
-        String assunto = "Bem-vindo ao Meu Orçamento - Acesse sua nova conta";
+
+        String assunto = "Bem-vindo ao Meu Orcamento - Acesse sua nova conta";
         String corpo = String.format(
             "<!DOCTYPE html>" +
             "<html>" +
@@ -94,31 +88,31 @@ public class UsuarioService {
             "</head>" +
             "<body>" +
             "    <div class=\"header\">" +
-            "        <h2>Bem-vindo ao Meu Orçamento!</h2>" +
+            "        <h2>Bem-vindo ao Meu Orcamento!</h2>" +
             "    </div>" +
             "    <div class=\"content\">" +
-            "        <p>Olá <b>%s</b>,</p>" +
-            "        <p>Seu cadastro foi realizado com sucesso! Estamos felizes em tê-lo como usuário do nosso sistema de gestão financeira.</p>" +
+            "        <p>Ola <b>%s</b>,</p>" +
+            "        <p>Seu cadastro foi realizado com sucesso! Estamos felizes em te-lo como usuario do nosso sistema de gestao financeira.</p>" +
             "        <div class=\"credentials\">" +
             "            <p><strong>Suas credenciais de acesso:</strong></p>" +
-            "            <p>Usuário: <span class=\"highlight\">%s</span></p>" +
+            "            <p>Usuario: <span class=\"highlight\">%s</span></p>" +
             "            <p>Senha inicial: <span class=\"highlight\">%s</span></p>" +
-            "            <p>Token de validação: <span class=\"highlight\">%s</span></p>" +
+            "            <p>Token de validacao: <span class=\"highlight\">%s</span></p>" +
             "        </div>" +
-            "        <p><strong>Próximos passos:</strong></p>" +
+            "        <p><strong>Proximos passos:</strong></p>" +
             "        <ol>" +
             "            <li>Acesse o sistema em <a href=\"meuorcamentoapp.com.br\">meuorcamentoapp.com.br</a></li>" +
-            "            <li>Faça login com seu usuário e senha</li>" +
-            "            <li>Quando solicitado, informe o token de validação acima</li>" +
+            "            <li>Faca login com seu usuario e senha</li>" +
+            "            <li>Quando solicitado, informe o token de validacao acima</li>" +
             "            <li>Defina uma nova senha segura</li>" +
             "        </ol>" +
-            "        <p>Por motivos de segurança, este token é válido por 24 horas. Após este período, será necessário solicitar um novo token.</p>" +
-            "        <p>Caso tenha qualquer dúvida, responda a este email ou entre em contato com o suporte.</p>" +
+            "        <p>Por motivos de seguranca, este token e valido por 24 horas. Apos este periodo, sera necessario solicitar um novo token.</p>" +
+            "        <p>Caso tenha qualquer duvida, responda a este email ou entre em contato com o suporte.</p>" +
             "    </div>" +
             "    <div class=\"footer\">" +
-            "        <p>Atenciosamente,<br>Equipe Meu Orçamento</p>" +
-            "        <p> %d Meu Orçamento - Todos os direitos reservados</p>" +
-            "        <p><small>Este é um email automático, por favor não responda.</small></p>" +
+            "        <p>Atenciosamente,<br>Equipe Meu Orcamento</p>" +
+            "        <p> %d Meu Orcamento - Todos os direitos reservados</p>" +
+            "        <p><small>Este e um email automatico, por favor nao responda.</small></p>" +
             "    </div>" +
             "</body>" +
             "</html>",
@@ -129,33 +123,44 @@ public class UsuarioService {
     }
 
     public List<Usuario> listarUsuarios() {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return usuarioRepository.findByTenantId(tenantId);
+    }
+
+    public List<Usuario> listarTodosUsuarios() {
         return usuarioRepository.findAll();
     }
 
     public Usuario obterUsuarioPorId(Long id) {
-        return usuarioRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return usuarioRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario nao encontrado"));
     }
 
     public Usuario obterUsuarioPorUsername(String username) {
         return usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+                .orElseThrow(() -> new EntityNotFoundException("Usuario nao encontrado"));
+    }
+
+    public Usuario obterUsuarioPorUsernameDoTenant(String username) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        return usuarioRepository.findByUsernameAndTenantId(username, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario nao encontrado"));
     }
 
     public void atualizarSenha(String username, String novaSenha) {
         Usuario usuario = usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
-        usuario.setPassword(passwordEncoder.encode(novaSenha)); // Criptografa a nova senha
+                .orElseThrow(() -> new EntityNotFoundException("Usuario nao encontrado"));
+        usuario.setPassword(passwordEncoder.encode(novaSenha));
         usuarioRepository.save(usuario);
     }
 
     public Usuario atualizarUsuario(Long id, Usuario usuarioAtualizado) {
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        Usuario usuario = usuarioRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario nao encontrado"));
         usuario.setUsername(usuarioAtualizado.getUsername());
         usuario.setEmail(usuarioAtualizado.getEmail());
-        usuario.setTenantId(usuarioAtualizado.getTenantId());
-        // Só atualiza a senha se vier preenchida
         if (usuarioAtualizado.getPassword() != null && !usuarioAtualizado.getPassword().isEmpty()) {
             usuario.setPassword(passwordEncoder.encode(usuarioAtualizado.getPassword()));
         }
@@ -166,10 +171,10 @@ public class UsuarioService {
 
     public boolean validarTokenPrimeiroLogin(String username, String tokenInformado) {
         Usuario usuario = usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+                .orElseThrow(() -> new EntityNotFoundException("Usuario nao encontrado"));
         if (usuario.isPrimeiroLogin() && usuario.getToken() != null && usuario.getToken().equals(tokenInformado)) {
             usuario.setPrimeiroLogin(false);
-            usuario.setToken(null); // Remove o token após uso
+            usuario.setToken(null);
             usuario.setDataPrimeiroLogin(LocalDateTime.now());
             usuarioRepository.save(usuario);
             return true;

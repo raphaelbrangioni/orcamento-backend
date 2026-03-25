@@ -7,10 +7,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CategoriaDespesaRepository extends JpaRepository<CategoriaDespesa, Long> {
     List<CategoriaDespesa> findByTenantId(String tenantId);
+    Optional<CategoriaDespesa> findByIdAndTenantId(Long id, String tenantId);
     boolean existsByNomeAndTenantId(String nome, String tenantId);
     
     @Query("SELECT c FROM CategoriaDespesa c LEFT JOIN FETCH c.subcategorias WHERE c.tenantId = :tenantId")
