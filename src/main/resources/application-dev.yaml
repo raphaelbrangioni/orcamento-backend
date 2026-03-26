@@ -1,0 +1,48 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DEV_DB_URL:jdbc:mysql://localhost:3306/orcamento-dev?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC}
+    username: ${DEV_DB_USERNAME:root}
+    password: ${DEV_DB_PASSWORD:}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 10
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      pool-name: HikariPool-Orcamento-Dev
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+  flyway:
+    enabled: false
+  mail:
+    host: ${DEV_MAIL_HOST:localhost}
+    port: ${DEV_MAIL_PORT:2525}
+    username: ${DEV_MAIL_USERNAME:}
+    password: ${DEV_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${DEV_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${DEV_MAIL_STARTTLS:false}
+    from: ${DEV_MAIL_FROM:no-reply-dev@orcamento.local}
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:./uploads/dev}
+
+app:
+  cors:
+    allowed-origin-patterns:
+      - http://orcamento.local
+      - http://localhost:*
+  bootstrap:
+    admin:
+      enabled: ${DEV_BOOTSTRAP_ADMIN_ENABLED:true}
+      username: ${DEV_BOOTSTRAP_ADMIN_USERNAME:admin}
+      email: ${DEV_BOOTSTRAP_ADMIN_EMAIL:admin-dev@orcamento.local}
+      nome: ${DEV_BOOTSTRAP_ADMIN_NOME:Administrador Dev}
+      tenant-id: ${DEV_BOOTSTRAP_ADMIN_TENANT_ID:dev-admin}
+      password-hash: ${DEV_BOOTSTRAP_ADMIN_PASSWORD_HASH:$2a$10$KElqWlIeyRvdQOf1G9tLiOAS5u/z8fRDmJ5ysFi0a2ToxWGoHEbeW}

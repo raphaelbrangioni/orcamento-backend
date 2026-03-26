@@ -84,6 +84,8 @@ app:
       - Content-Disposition
     allow-credentials: false
     max-age: 3600
+  fechamento-mensal:
+    validar-fechamento-diario-desde: ${FECHAMENTO_MENSAL_VALIDAR_FECHAMENTO_DIARIO_DESDE:2026-03}
   bootstrap:
     admin:
       enabled: false

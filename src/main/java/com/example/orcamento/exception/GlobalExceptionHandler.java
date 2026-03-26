@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 
@@ -66,6 +67,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleEntityNotFound(EntityNotFoundException ex, WebRequest request) {
+        logClientError(ex, HttpStatus.NOT_FOUND, request);
+        return createErrorResponse("NOT_FOUND", ex.getMessage(), HttpStatus.NOT_FOUND, request, null);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(NoResourceFoundException ex, WebRequest request) {
         logClientError(ex, HttpStatus.NOT_FOUND, request);
         return createErrorResponse("NOT_FOUND", ex.getMessage(), HttpStatus.NOT_FOUND, request, null);
     }

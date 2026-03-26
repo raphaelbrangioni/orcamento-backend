@@ -1,0 +1,84 @@
+replicaCount: 1
+
+image:
+  repository: harbor.orcamento.local/orcamento/orcamento-backend
+  pullPolicy: IfNotPresent
+  tag: "prod-latest"
+
+service:
+  type: ClusterIP
+  port: 8045
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1024Mi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+imagePullSecrets: []
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+env:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=40 -XX:+UseG1GC"
+
+app:
+  database:
+    host: mysql-external.orcamento.svc.cluster.local
+    port: 3306
+    name: orcamento
+    username: root
+    password: ""
+    existingSecret: orcamento-backend-secrets
+    existingSecretKey: SPRING_DATASOURCE_PASSWORD
+
+  cors:
+    allowedOrigins: "http://orcamento.local,http://api.orcamento.local,http://localhost:8080,*"
+
+  jwt:
+    expirationMs: 1800000
+    existingSecret: orcamento-backend-secrets
+    existingSecretKey: JWT_SECRET
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: noreplay.meuorcamento@gmail.com
+    password: ""
+    from: noreplay.meuorcamento@gmail.com
+    existingSecret: orcamento-backend-secrets
+    existingSecretKey: SPRING_MAIL_PASSWORD
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 45
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+configMap:
+  create: true
+  applicationYaml: ""

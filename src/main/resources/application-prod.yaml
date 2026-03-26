@@ -1,0 +1,49 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${PROD_DB_URL}
+    username: ${PROD_DB_USERNAME}
+    password: ${PROD_DB_PASSWORD}
+    hikari:
+      minimum-idle: ${PROD_DB_MIN_IDLE:5}
+      maximum-pool-size: ${PROD_DB_MAX_POOL_SIZE:20}
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      pool-name: HikariPool-Orcamento-Prod
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: validate
+  mail:
+    host: ${PROD_MAIL_HOST}
+    port: ${PROD_MAIL_PORT:587}
+    username: ${PROD_MAIL_USERNAME}
+    password: ${PROD_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+    from: ${PROD_MAIL_FROM}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:/var/lib/orcamento/uploads}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  cors:
+    allowed-origin-patterns:
+      - ${PROD_CORS_ALLOWED_ORIGIN}
+  bootstrap:
+    admin:
+      enabled: false

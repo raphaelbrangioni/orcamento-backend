@@ -1,0 +1,45 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${HML_DB_URL:jdbc:mysql://localhost:3306/orcamento-hml?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC}
+    username: ${HML_DB_USERNAME:root}
+    password: ${HML_DB_PASSWORD:}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      pool-name: HikariPool-Orcamento-Hml
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+  mail:
+    host: ${HML_MAIL_HOST:localhost}
+    port: ${HML_MAIL_PORT:2525}
+    username: ${HML_MAIL_USERNAME:}
+    password: ${HML_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${HML_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${HML_MAIL_STARTTLS:false}
+    from: ${HML_MAIL_FROM:no-reply-hml@orcamento.local}
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:./uploads/hml}
+
+app:
+  cors:
+    allowed-origin-patterns:
+      - ${HML_CORS_ALLOWED_ORIGIN:http://orcamento.local}
+  bootstrap:
+    admin:
+      enabled: ${HML_BOOTSTRAP_ADMIN_ENABLED:true}
+      username: ${HML_BOOTSTRAP_ADMIN_USERNAME:admin}
+      email: ${HML_BOOTSTRAP_ADMIN_EMAIL:admin-hml@orcamento.local}
+      nome: ${HML_BOOTSTRAP_ADMIN_NOME:Administrador Hml}
+      tenant-id: ${HML_BOOTSTRAP_ADMIN_TENANT_ID:hml-admin}
+      password-hash: ${HML_BOOTSTRAP_ADMIN_PASSWORD_HASH:$2a$10$KElqWlIeyRvdQOf1G9tLiOAS5u/z8fRDmJ5ysFi0a2ToxWGoHEbeW}
