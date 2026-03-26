@@ -59,6 +59,7 @@ public class DespesaService {
 
     @Transactional
     public Despesa salvarDespesa(Despesa despesa) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         if (despesa.getContaCorrente() != null && despesa.getContaCorrente().getId() == null) {
             throw new IllegalArgumentException("Conta corrente invalida para salvar a despesa");
         }
@@ -74,7 +75,7 @@ public class DespesaService {
         }
 
         log.info("Salvando uma despesa: {}", despesa);
-        despesa.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
+        despesa.setTenantId(tenantId);
         Despesa despesaSalva = despesaRepository.save(despesa);
 
         ConfiguracaoDTO configuracao = configuracaoService.getConfiguracoes();
@@ -104,6 +105,16 @@ public class DespesaService {
                     .build();
             movimentacaoService.registrarMovimentacao(movimentacao);
         }
+
+        log.info(
+                "despesa.criada despesaId={} tenantId={} contaCorrenteId={} subcategoriaId={} valorPrevisto={} valorPago={}",
+                despesaSalva.getId(),
+                tenantId,
+                despesaSalva.getContaCorrente() != null ? despesaSalva.getContaCorrente().getId() : null,
+                despesaSalva.getSubcategoria() != null ? despesaSalva.getSubcategoria().getId() : null,
+                despesaSalva.getValorPrevisto(),
+                despesaSalva.getValorPago()
+        );
 
         return despesaSalva;
     }
@@ -169,6 +180,7 @@ public class DespesaService {
         }
 
         despesaRepository.deleteByIdAndTenantId(id, tenantId);
+        log.info("despesa.excluida despesaId={} tenantId={}", id, tenantId);
     }
 
     public List<Despesa> listarPorSubcategoria(Long subcategoriaId) {
@@ -179,6 +191,7 @@ public class DespesaService {
     @Transactional
     public Despesa atualizarPagamento(Long id, BigDecimal valorPago, LocalDate dataPagamento, Long contaCorrenteId, Long metaEconomiaId, FormaDePagamento formaPagamento) {
         Despesa despesa = buscarDespesaPorId(id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
 
         if (despesa.getDataPagamento() != null) {
             throw new IllegalStateException("Despesa ja foi paga");
@@ -220,7 +233,26 @@ public class DespesaService {
             log.info("Despesa nao esta associada a uma meta ou subcategoria. Nenhuma meta foi atualizada.");
         }
 
-        return despesaRepository.save(despesa);
+        log.info(
+                "despesa.pagamento.registrado despesaId={} tenantId={} contaCorrenteId={} valorPago={} dataPagamento={} formaPagamento={}",
+                despesa.getId(),
+                tenantId,
+                contaCorrenteId,
+                valorPago,
+                dataPagamento,
+                formaPagamento
+        );
+
+        Despesa despesaSalva = despesaRepository.save(despesa);
+        log.info(
+                "despesa.atualizada despesaId={} tenantId={} contaCorrenteId={} subcategoriaId={} valorPrevisto={}",
+                despesaSalva.getId(),
+                tenantId,
+                despesaSalva.getContaCorrente() != null ? despesaSalva.getContaCorrente().getId() : null,
+                despesaSalva.getSubcategoria() != null ? despesaSalva.getSubcategoria().getId() : null,
+                despesaSalva.getValorPrevisto()
+        );
+        return despesaSalva;
     }
 
     @Transactional
@@ -384,6 +416,7 @@ public class DespesaService {
     @Transactional
     public Despesa estornarPagamento(Long id) {
         Despesa despesa = buscarDespesaPorId(id);
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
 
         if (despesa.getValorPago() == null || despesa.getDataPagamento() == null || despesa.getContaCorrente() == null) {
             throw new IllegalStateException("Despesa nao possui pagamento para estornar");
@@ -420,6 +453,13 @@ public class DespesaService {
         despesa.setValorPago(null);
         despesa.setDataPagamento(null);
         despesa.setContaCorrente(null);
+
+        log.info(
+                "despesa.pagamento.estornado despesaId={} tenantId={} valorEstornado={}",
+                despesa.getId(),
+                tenantId,
+                movimentacaoEntrada.getValor()
+        );
 
         return despesaRepository.save(despesa);
     }

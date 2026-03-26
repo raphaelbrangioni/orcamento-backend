@@ -38,6 +38,7 @@ public class MovimentacaoService {
                                                     BigDecimal valor,
                                                     LocalDate data,
                                                     String descricao) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         if (contaOrigemId == null) {
             throw new IllegalArgumentException("contaOrigemId é obrigatório");
         }
@@ -85,6 +86,15 @@ public class MovimentacaoService {
         List<Movimentacao> resultado = new ArrayList<>(2);
         resultado.add(registrarMovimentacaoInternal(debito));
         resultado.add(registrarMovimentacaoInternal(credito));
+        log.info(
+                "movimentacao.transferencia.registrada transferenciaId={} tenantId={} contaOrigemId={} contaDestinoId={} valor={} data={}",
+                transferenciaId,
+                tenantId,
+                contaOrigemId,
+                contaDestinoId,
+                valor,
+                dataEfetiva
+        );
         return resultado;
     }
 
@@ -167,6 +177,14 @@ public class MovimentacaoService {
         List<Movimentacao> resultado = new ArrayList<>(2);
         resultado.add(registrarMovimentacaoInternal(estornoNaOrigem));
         resultado.add(registrarMovimentacaoInternal(estornoNoDestino));
+        log.info(
+                "movimentacao.transferencia.estornada transferenciaId={} tenantId={} contaOrigemId={} contaDestinoId={} valor={}",
+                transferenciaId,
+                tenantId,
+                debitoOriginal.getContaCorrente().getId(),
+                creditoOriginal.getContaCorrente().getId(),
+                valor
+        );
         return resultado;
     }
 

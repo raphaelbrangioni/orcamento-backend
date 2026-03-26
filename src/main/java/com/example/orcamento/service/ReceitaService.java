@@ -34,7 +34,8 @@ public class ReceitaService {
 
     @Transactional
     public Receita salvarReceita(Receita receita) {
-        receita.setTenantId(com.example.orcamento.security.TenantContext.getTenantId());
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        receita.setTenantId(tenantId);
         if (receita.getContaCorrente() == null || receita.getContaCorrente().getId() == null) {
             throw new IllegalArgumentException("Conta corrente e obrigatoria para salvar a receita");
         }
@@ -51,7 +52,6 @@ public class ReceitaService {
         log.info("Valor de isPrevista apos salvar: {}", receitaSalva.isPrevista());
 
         if (!receitaSalva.isPrevista()) {
-            String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
             Movimentacao movimentacao = Movimentacao.builder()
                     .tipo(TipoMovimentacao.ENTRADA)
                     .valor(receita.getValor())
@@ -64,6 +64,15 @@ public class ReceitaService {
                     .build();
             movimentacaoService.registrarMovimentacao(movimentacao);
         }
+
+        log.info(
+                "receita.criada receitaId={} tenantId={} contaCorrenteId={} valor={} prevista={}",
+                receitaSalva.getId(),
+                tenantId,
+                receitaSalva.getContaCorrente() != null ? receitaSalva.getContaCorrente().getId() : null,
+                receitaSalva.getValor(),
+                receitaSalva.isPrevista()
+        );
 
         return receitaSalva;
     }
@@ -94,6 +103,7 @@ public class ReceitaService {
         }
 
         receitaRepository.deleteByIdAndTenantId(id, tenantId);
+        log.info("receita.excluida receitaId={} tenantId={}", id, tenantId);
     }
 
     @Transactional
@@ -151,6 +161,16 @@ public class ReceitaService {
                 movimentacaoService.registrarMovimentacao(movimentacaoEntrada);
             }
         }
+
+        log.info(
+                "receita.atualizada receitaId={} tenantId={} contaCorrenteId={} valor={} prevista={} refezMovimentacao={}",
+                receitaSalva.getId(),
+                tenantId,
+                receitaSalva.getContaCorrente() != null ? receitaSalva.getContaCorrente().getId() : null,
+                receitaSalva.getValor(),
+                receitaSalva.isPrevista(),
+                precisaRefazerMovimentacao
+        );
 
         return receitaSalva;
     }
@@ -220,6 +240,14 @@ public class ReceitaService {
                 .tenantId(tenantId)
                 .build();
         movimentacaoService.registrarMovimentacao(movimentacao);
+
+        log.info(
+                "receita.efetivada receitaId={} tenantId={} contaCorrenteId={} valor={}",
+                receitaAtualizada.getId(),
+                tenantId,
+                receitaAtualizada.getContaCorrente() != null ? receitaAtualizada.getContaCorrente().getId() : null,
+                receitaAtualizada.getValor()
+        );
 
         return receitaAtualizada;
     }

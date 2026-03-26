@@ -58,6 +58,16 @@ public class CompraService {
         parcelas.forEach(parcela -> parcela.setCompra(compraSalva));
         lancamentoCartaoRepository.saveAll(parcelas);
 
+        log.info(
+                "compra.criada compraId={} tenantId={} cartaoCreditoId={} subcategoriaId={} valorTotal={} numeroParcelas={}",
+                compraSalva.getId(),
+                tenantId,
+                compraSalva.getCartaoCredito() != null ? compraSalva.getCartaoCredito().getId() : null,
+                compraSalva.getSubcategoria() != null ? compraSalva.getSubcategoria().getId() : null,
+                compraSalva.getValorTotal(),
+                numeroParcelas
+        );
+
         return compraSalva;
     }
 
@@ -186,7 +196,17 @@ public class CompraService {
         List<LancamentoCartao> novasParcelas = gerarParcelas(compra, mesPrimeiraParcela, numeroParcelas);
         novasParcelas.forEach(parcela -> parcela.setCompra(compra));
         lancamentoCartaoRepository.saveAll(novasParcelas);
-        return compraRepository.save(compra);
+        Compra compraSalva = compraRepository.save(compra);
+        log.info(
+                "compra.atualizada compraId={} tenantId={} cartaoCreditoId={} subcategoriaId={} valorTotal={} numeroParcelas={}",
+                compraSalva.getId(),
+                tenantId,
+                compraSalva.getCartaoCredito() != null ? compraSalva.getCartaoCredito().getId() : null,
+                compraSalva.getSubcategoria() != null ? compraSalva.getSubcategoria().getId() : null,
+                compraSalva.getValorTotal(),
+                numeroParcelas
+        );
+        return compraSalva;
     }
 
     @Transactional
@@ -199,6 +219,7 @@ public class CompraService {
         }
         lancamentoCartaoRepository.deleteByCompraIdAndTenantId(id, tenantId);
         compraRepository.delete(compra);
+        log.info("compra.excluida compraId={} tenantId={}", id, tenantId);
     }
 
     private SubcategoriaDespesa buscarSubcategoriaPorId(Long id, String tenantId) {

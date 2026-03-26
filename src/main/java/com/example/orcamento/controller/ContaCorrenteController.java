@@ -1,19 +1,25 @@
 package com.example.orcamento.controller;
 
+import com.example.orcamento.dto.ContaCorrenteSaldoDiaResponseDTO;
+import com.example.orcamento.dto.FecharSaldoDiaRequestDTO;
 import com.example.orcamento.model.ContaCorrente;
+import com.example.orcamento.service.ContaCorrenteSaldoDiaService;
 import com.example.orcamento.service.ContaCorrenteService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/contas-corrente")
+@RequiredArgsConstructor
 public class ContaCorrenteController {
 
-    @Autowired
-    private ContaCorrenteService contaCorrenteService;
+    private final ContaCorrenteService contaCorrenteService;
+    private final ContaCorrenteSaldoDiaService contaCorrenteSaldoDiaService;
 
     @PostMapping
     public ResponseEntity<ContaCorrente> criarConta(@RequestBody ContaCorrente conta) {
@@ -43,5 +49,22 @@ public class ContaCorrenteController {
     @PutMapping("/{id}")
     public ResponseEntity<ContaCorrente> atualizarConta(@PathVariable Long id, @RequestBody ContaCorrente contaAtualizada) {
         return ResponseEntity.ok(contaCorrenteService.atualizarConta(id, contaAtualizada));
+    }
+
+    @GetMapping("/{id}/saldo-dia/periodo")
+    public ResponseEntity<List<ContaCorrenteSaldoDiaResponseDTO>> listarSaldoDiaPorPeriodo(
+            @PathVariable Long id,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim
+    ) {
+        return ResponseEntity.ok(contaCorrenteSaldoDiaService.listarPorPeriodo(id, dataInicio, dataFim));
+    }
+
+    @PostMapping("/{id}/saldo-dia/fechar")
+    public ResponseEntity<ContaCorrenteSaldoDiaResponseDTO> fecharSaldoDia(
+            @PathVariable Long id,
+            @RequestBody FecharSaldoDiaRequestDTO request
+    ) {
+        return ResponseEntity.ok(contaCorrenteSaldoDiaService.fecharDia(id, request));
     }
 }

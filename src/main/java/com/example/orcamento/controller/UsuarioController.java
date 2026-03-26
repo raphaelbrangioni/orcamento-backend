@@ -53,6 +53,14 @@ public class UsuarioController {
         String tenantId = usuario.getTenantId();
         var acesso = acessoUsuarioService.registrarLogin(usuario, ipOrigem, tenantId);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(usuario);
+        log.info(
+            "auth.login.success usuarioId={} username={} tenantId={} acessoId={} ipOrigem={}",
+            usuario.getId(),
+            usuario.getUsername(),
+            tenantId,
+            acesso.getId(),
+            ipOrigem
+        );
         return ResponseEntity.ok(Map.of(
             "token", token,
             "acessoId", acesso.getId(),
@@ -274,6 +282,7 @@ public class UsuarioController {
         var refreshOpt = refreshTokenService.findByToken(refreshTokenStr);
 
         if (refreshOpt.isEmpty() || refreshTokenService.isExpired(refreshOpt.get())) {
+            log.warn("auth.refresh.denied reason=invalid_or_expired");
             return ResponseEntity.status(401).body(Map.of("error", "Refresh token inválido ou expirado"));
         }
 
@@ -288,6 +297,12 @@ public class UsuarioController {
 
         // 3. Gerar um novo refresh token
         RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(usuario);
+        log.info(
+                "auth.refresh.success usuarioId={} username={} tenantId={}",
+                usuario.getId(),
+                usuario.getUsername(),
+                usuario.getTenantId()
+        );
 
         // 4. Retornar ambos os novos tokens
         return ResponseEntity.ok(Map.of(

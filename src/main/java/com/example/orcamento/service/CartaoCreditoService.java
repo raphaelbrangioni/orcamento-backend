@@ -4,6 +4,7 @@ import com.example.orcamento.model.CartaoCredito;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CartaoCreditoService {
     private final CartaoCreditoRepository cartaoCreditoRepository;
 
@@ -22,7 +24,10 @@ public class CartaoCreditoService {
             throw new IllegalStateException("Usuário sem tenant vinculado. Não é possível cadastrar cartão de crédito.");
         }
         cartao.setTenantId(tenantId);
-        return cartaoCreditoRepository.save(cartao);
+        CartaoCredito cartaoSalvo = cartaoCreditoRepository.save(cartao);
+        log.info("cartao_credito.criado cartaoId={} tenantId={} nome={} status={} limite={}",
+                cartaoSalvo.getId(), tenantId, cartaoSalvo.getNome(), cartaoSalvo.getStatus(), cartaoSalvo.getLimite());
+        return cartaoSalvo;
     }
 
     public List<CartaoCredito> listarCartoes() {
@@ -42,6 +47,7 @@ public class CartaoCreditoService {
         CartaoCredito cartao = cartaoCreditoRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new EntityNotFoundException("Cartão de crédito não encontrado para o tenant atual: " + id));
         cartaoCreditoRepository.delete(cartao);
+        log.info("cartao_credito.excluido cartaoId={} tenantId={} nome={}", id, tenantId, cartao.getNome());
     }
 
     @Transactional
@@ -59,7 +65,10 @@ public class CartaoCreditoService {
         cartaoCredito.setStatus(cataoAtualizado.getStatus());
         cartaoCredito.setModeloImportacao(cataoAtualizado.getModeloImportacao());
 
-        return cartaoCreditoRepository.save(cartaoCredito);
+        CartaoCredito cartaoSalvo = cartaoCreditoRepository.save(cartaoCredito);
+        log.info("cartao_credito.atualizado cartaoId={} tenantId={} nome={} status={} limite={}",
+                cartaoSalvo.getId(), tenantId, cartaoSalvo.getNome(), cartaoSalvo.getStatus(), cartaoSalvo.getLimite());
+        return cartaoSalvo;
     }
 
     /**

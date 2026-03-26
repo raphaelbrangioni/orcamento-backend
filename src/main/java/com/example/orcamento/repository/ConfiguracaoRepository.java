@@ -4,8 +4,9 @@ import com.example.orcamento.model.Configuracao;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ConfiguracaoRepository extends JpaRepository<Configuracao, Long> {
-    // Método para buscar a configuração ativa (assumindo que teremos apenas uma)
-    Configuracao findFirstByOrderByIdAsc();
+    Optional<Configuracao> findByTenantId(String tenantId);
 }

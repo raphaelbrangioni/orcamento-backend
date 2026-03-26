@@ -24,8 +24,12 @@ public class ContaCorrenteService {
 
     @Transactional
     public ContaCorrente salvar(ContaCorrente conta) {
-        conta.setTenantId(TenantContext.getTenantId());
-        return contaCorrenteRepository.save(conta);
+        String tenantId = TenantContext.getTenantId();
+        conta.setTenantId(tenantId);
+        ContaCorrente contaSalva = contaCorrenteRepository.save(conta);
+        log.info("conta_corrente.criada contaId={} tenantId={} banco={} ativa={} saldo={}",
+                contaSalva.getId(), tenantId, contaSalva.getNomeBanco(), contaSalva.isContaAtiva(), contaSalva.getSaldo());
+        return contaSalva;
     }
 
     public List<ContaCorrente> listarTodos() {
@@ -58,6 +62,7 @@ public class ContaCorrenteService {
     public void deletar(Long id) {
         String tenantId = TenantContext.getTenantId();
         contaCorrenteRepository.deleteByIdAndTenantId(id, tenantId);
+        log.info("conta_corrente.excluida contaId={} tenantId={}", id, tenantId);
     }
 
     @Transactional
@@ -72,6 +77,9 @@ public class ContaCorrenteService {
         conta.setSaldo(contaAtualizada.getSaldo());
         conta.setContaAtiva(contaAtualizada.isContaAtiva());
 
-        return contaCorrenteRepository.save(conta);
+        ContaCorrente contaSalva = contaCorrenteRepository.save(conta);
+        log.info("conta_corrente.atualizada contaId={} tenantId={} banco={} ativa={} saldo={}",
+                contaSalva.getId(), tenantId, contaSalva.getNomeBanco(), contaSalva.isContaAtiva(), contaSalva.getSaldo());
+        return contaSalva;
     }
 }

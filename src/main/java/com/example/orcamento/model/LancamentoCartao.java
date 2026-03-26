@@ -68,6 +68,7 @@ public class LancamentoCartao {
     // Getters e setters
     @Setter
     @Getter
+    @Builder.Default
     @Column(name = "pago_terceiro")
     private Boolean pagoPorTerceiro = false; // Valor padrão é falso
 
