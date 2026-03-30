@@ -16,10 +16,12 @@ public class FechamentoMensalResponseDTO {
     private Long id;
     private Integer ano;
     private Integer mes;
+    private Boolean fechado;
     private BigDecimal saldoInicial;
     private BigDecimal receitasRealizadas;
     private BigDecimal despesasDoMes;
     private BigDecimal despesasPagas;
+    private BigDecimal despesasPagasNoCaixa;
     private BigDecimal despesasPagasCartao;
     private BigDecimal totalFaturas;
     private BigDecimal totalTerceirosFaturas;

@@ -50,6 +50,9 @@ public class FechamentoMensal {
     @Column(name = "despesas_pagas", nullable = false, precision = 19, scale = 2)
     private BigDecimal despesasPagas;
 
+    @Column(name = "despesas_pagas_no_caixa", nullable = false, precision = 19, scale = 2)
+    private BigDecimal despesasPagasNoCaixa;
+
     @Column(name = "despesas_pagas_cartao", nullable = false, precision = 19, scale = 2)
     private BigDecimal despesasPagasCartao;
 

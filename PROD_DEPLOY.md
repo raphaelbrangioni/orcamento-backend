@@ -86,7 +86,7 @@ powershell -ExecutionPolicy Bypass -File C:\Projetos\build_deploy\deploy-backend
 ### Deploy com versao explicita
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\Projetos\build_deploy\deploy-backend-prod.ps1 -AllowProd -Version 1.1.12
+powershell -ExecutionPolicy Bypass -File C:\Projetos\build_deploy\deploy-backend-prod.ps1 -AllowProd -Version 1.1.13
 ```
 
 ### Deploy sem rebuild da imagem

@@ -29,6 +29,7 @@ import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -81,56 +82,7 @@ public class FechamentoMensalService {
         LocalDate inicioMes = competencia.atDay(1);
         LocalDate fimMes = competencia.atEndOfMonth();
 
-        BigDecimal saldoInicial = obterSaldoInicial(contasAtivas, tenantId, competencia);
-
-        List<Receita> receitasMes = receitaRepository.findByDataRecebimentoBetweenAndTenantId(inicioMes, fimMes, tenantId);
-        BigDecimal receitasRealizadas = receitasMes.stream()
-                .filter(receita -> !receita.isPrevista())
-                .map(Receita::getValor)
-                .filter(valor -> valor != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        List<Despesa> despesasDoMes = despesaRepository.findByTenantIdAndDataVencimentoBetween(tenantId, inicioMes, fimMes);
-        BigDecimal totalDespesasDoMes = despesasDoMes.stream()
-                .map(Despesa::getValorPrevisto)
-                .filter(valor -> valor != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        List<Despesa> despesasPagasMes = despesaRepository.findByAnoAndMes(tenantId, ano, mes).stream()
-                .filter(despesa -> despesa.getDataPagamento() != null
-                        && despesa.getDataPagamento().getYear() == ano
-                        && despesa.getDataPagamento().getMonthValue() == mes
-                        && despesa.getValorPago() != null)
-                .toList();
-
-        BigDecimal totalDespesasPagas = despesasPagasMes.stream()
-                .map(Despesa::getValorPago)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal despesasPagasCartao = despesasPagasMes.stream()
-                .filter(despesa -> despesa.getFormaDePagamento() == FormaDePagamento.CREDITO)
-                .map(Despesa::getValorPago)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal despesasPagasNoCaixa = despesasPagasMes.stream()
-                .filter(despesa -> despesa.getFormaDePagamento() != FormaDePagamento.CREDITO)
-                .map(Despesa::getValorPago)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        String mesAnoFatura = formatarMesAnoFatura(ano, mes);
-        List<LancamentoCartao> faturasMes = lancamentoCartaoRepository.findByMesAnoFaturaAndTenantId(mesAnoFatura, tenantId);
-
-        BigDecimal totalFaturas = faturasMes.stream()
-                .map(LancamentoCartao::getValorTotal)
-                .filter(valor -> valor != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalTerceirosFaturas = faturasMes.stream()
-                .filter(lancamento -> "Terceiros".equalsIgnoreCase(lancamento.getProprietario()))
-                .map(LancamentoCartao::getValorTotal)
-                .filter(valor -> valor != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal saldoFinal = saldoInicial.add(receitasRealizadas).subtract(despesasPagasNoCaixa);
+        ResumoMensal resumoMensal = calcularResumoMensal(competencia, tenantId, contasAtivas, false);
 
         FechamentoMensal fechamentoMensal = fechamentoMensalRepository
                 .findByTenantIdAndAnoAndMes(tenantId, ano, mes)
@@ -139,14 +91,15 @@ public class FechamentoMensalService {
         fechamentoMensal.setTenantId(tenantId);
         fechamentoMensal.setAno(ano);
         fechamentoMensal.setMes(mes);
-        fechamentoMensal.setSaldoInicial(saldoInicial);
-        fechamentoMensal.setReceitasRealizadas(receitasRealizadas);
-        fechamentoMensal.setDespesasDoMes(totalDespesasDoMes);
-        fechamentoMensal.setDespesasPagas(totalDespesasPagas);
-        fechamentoMensal.setDespesasPagasCartao(despesasPagasCartao);
-        fechamentoMensal.setTotalFaturas(totalFaturas);
-        fechamentoMensal.setTotalTerceirosFaturas(totalTerceirosFaturas);
-        fechamentoMensal.setSaldoFinal(saldoFinal);
+        fechamentoMensal.setSaldoInicial(resumoMensal.saldoInicial());
+        fechamentoMensal.setReceitasRealizadas(resumoMensal.receitasRealizadas());
+        fechamentoMensal.setDespesasDoMes(resumoMensal.despesasDoMes());
+        fechamentoMensal.setDespesasPagas(resumoMensal.despesasPagas());
+        fechamentoMensal.setDespesasPagasNoCaixa(resumoMensal.despesasPagasNoCaixa());
+        fechamentoMensal.setDespesasPagasCartao(resumoMensal.despesasPagasCartao());
+        fechamentoMensal.setTotalFaturas(resumoMensal.totalFaturas());
+        fechamentoMensal.setTotalTerceirosFaturas(resumoMensal.totalTerceirosFaturas());
+        fechamentoMensal.setSaldoFinal(resumoMensal.saldoFinal());
         fechamentoMensal.setCalculadoEm(LocalDateTime.now());
 
         FechamentoMensal fechamentoMensalSalvo = fechamentoMensalRepository.save(fechamentoMensal);
@@ -157,15 +110,15 @@ public class FechamentoMensalService {
                 tenantId,
                 ano,
                 mes,
-                saldoInicial,
-                receitasRealizadas,
-                totalDespesasDoMes,
-                totalDespesasPagas,
-                despesasPagasNoCaixa,
-                despesasPagasCartao,
-                totalFaturas,
-                totalTerceirosFaturas,
-                saldoFinal
+                resumoMensal.saldoInicial(),
+                resumoMensal.receitasRealizadas(),
+                resumoMensal.despesasDoMes(),
+                resumoMensal.despesasPagas(),
+                resumoMensal.despesasPagasNoCaixa(),
+                resumoMensal.despesasPagasCartao(),
+                resumoMensal.totalFaturas(),
+                resumoMensal.totalTerceirosFaturas(),
+                resumoMensal.saldoFinal()
         );
 
         return toResponseDto(fechamentoMensalSalvo);
@@ -178,6 +131,47 @@ public class FechamentoMensalService {
         FechamentoMensal fechamentoMensal = fechamentoMensalRepository.findByTenantIdAndAnoAndMes(tenantId, ano, mes)
                 .orElseThrow(() -> new IllegalArgumentException("Fechamento mensal nao encontrado para " + ano + "/" + mes));
         return toResponseDto(fechamentoMensal);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<FechamentoMensalResponseDTO> buscarFechamentoOpcional(int ano, int mes) {
+        validarAnoMes(ano, mes);
+        String tenantId = TenantContext.getTenantId();
+        return fechamentoMensalRepository.findByTenantIdAndAnoAndMes(tenantId, ano, mes)
+                .map(this::toResponseDto);
+    }
+
+    @Transactional(readOnly = true)
+    public FechamentoMensalResponseDTO obterResumoMensal(int ano, int mes) {
+        validarAnoMes(ano, mes);
+        String tenantId = TenantContext.getTenantId();
+        Optional<FechamentoMensal> fechamentoExistente = fechamentoMensalRepository.findByTenantIdAndAnoAndMes(tenantId, ano, mes);
+        if (fechamentoExistente.isPresent()) {
+            return toResponseDto(fechamentoExistente.get());
+        }
+
+        YearMonth competencia = YearMonth.of(ano, mes);
+        List<ContaCorrente> contasAtivas = contaCorrenteService.listarTodos().stream()
+                .filter(ContaCorrente::isContaAtiva)
+                .toList();
+
+        ResumoMensal resumoMensal = calcularResumoMensal(competencia, tenantId, contasAtivas, true);
+        return FechamentoMensalResponseDTO.builder()
+                .id(null)
+                .ano(ano)
+                .mes(mes)
+                .fechado(false)
+                .saldoInicial(resumoMensal.saldoInicial())
+                .receitasRealizadas(resumoMensal.receitasRealizadas())
+                .despesasDoMes(resumoMensal.despesasDoMes())
+                .despesasPagas(resumoMensal.despesasPagas())
+                .despesasPagasNoCaixa(resumoMensal.despesasPagasNoCaixa())
+                .despesasPagasCartao(resumoMensal.despesasPagasCartao())
+                .totalFaturas(resumoMensal.totalFaturas())
+                .totalTerceirosFaturas(resumoMensal.totalTerceirosFaturas())
+                .saldoFinal(resumoMensal.saldoFinal())
+                .calculadoEm(LocalDateTime.now())
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -237,6 +231,105 @@ public class FechamentoMensalService {
                 .findByTenantIdAndAnoAndMes(tenantId, competenciaAnterior.getYear(), competenciaAnterior.getMonthValue())
                 .map(FechamentoMensal::getSaldoFinal)
                 .orElse(BigDecimal.ZERO);
+    }
+
+    private ResumoMensal calcularResumoMensal(
+            YearMonth competencia,
+            String tenantId,
+            List<ContaCorrente> contasAtivas,
+            boolean permitirPrevisao
+    ) {
+        LocalDate inicioMes = competencia.atDay(1);
+        LocalDate fimMes = competencia.atEndOfMonth();
+
+        BigDecimal saldoInicial = obterSaldoInicialPreview(contasAtivas, tenantId, competencia, permitirPrevisao);
+
+        List<Receita> receitasMes = receitaRepository.findByDataRecebimentoBetweenAndTenantId(inicioMes, fimMes, tenantId);
+        BigDecimal receitasRealizadas = receitasMes.stream()
+                .filter(receita -> !receita.isPrevista())
+                .map(Receita::getValor)
+                .filter(valor -> valor != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<Despesa> despesasDoMesLista = despesaRepository.findByTenantIdAndDataVencimentoBetween(tenantId, inicioMes, fimMes);
+        BigDecimal despesasDoMes = despesasDoMesLista.stream()
+                .map(Despesa::getValorPrevisto)
+                .filter(valor -> valor != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<Despesa> despesasPagasMes = despesasDoMesLista.stream()
+                .filter(despesa -> despesa.getValorPago() != null)
+                .toList();
+
+        BigDecimal despesasPagas = despesasPagasMes.stream()
+                .map(Despesa::getValorPago)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal despesasPagasCartao = despesasDoMesLista.stream()
+                .filter(despesa -> despesa.getFormaDePagamento() == FormaDePagamento.CREDITO)
+                .filter(despesa -> despesa.getValorPago() != null)
+                .map(Despesa::getValorPago)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal despesasPagasNoCaixa = despesasPagasMes.stream()
+                .filter(despesa -> despesa.getFormaDePagamento() != FormaDePagamento.CREDITO)
+                .map(Despesa::getValorPago)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String mesAnoFatura = formatarMesAnoFatura(competencia.getYear(), competencia.getMonthValue());
+        List<LancamentoCartao> faturasMes = lancamentoCartaoRepository.findByMesAnoFaturaAndTenantId(mesAnoFatura, tenantId);
+
+        BigDecimal totalFaturas = faturasMes.stream()
+                .map(LancamentoCartao::getValorTotal)
+                .filter(valor -> valor != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTerceirosFaturas = faturasMes.stream()
+                .filter(lancamento -> "Terceiros".equalsIgnoreCase(lancamento.getProprietario()))
+                .map(LancamentoCartao::getValorTotal)
+                .filter(valor -> valor != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal saldoFinal = saldoInicial.add(receitasRealizadas).subtract(despesasPagasNoCaixa);
+
+        return new ResumoMensal(
+                saldoInicial,
+                receitasRealizadas,
+                despesasDoMes,
+                despesasPagas,
+                despesasPagasNoCaixa,
+                despesasPagasCartao,
+                totalFaturas,
+                totalTerceirosFaturas,
+                saldoFinal
+        );
+    }
+
+    private BigDecimal obterSaldoInicialPreview(
+            List<ContaCorrente> contasAtivas,
+            String tenantId,
+            YearMonth competencia,
+            boolean permitirPrevisao
+    ) {
+        YearMonth competenciaAnterior = competencia.minusMonths(1);
+
+        Optional<FechamentoMensal> fechamentoAnterior = fechamentoMensalRepository
+                .findByTenantIdAndAnoAndMes(tenantId, competenciaAnterior.getYear(), competenciaAnterior.getMonthValue());
+        if (fechamentoAnterior.isPresent()) {
+            return fechamentoAnterior.get().getSaldoFinal();
+        }
+
+        if (!permitirPrevisao) {
+            return BigDecimal.ZERO;
+        }
+
+        YearMonth mesAtual = YearMonth.from(LocalDate.now());
+        if (competenciaAnterior.isAfter(mesAtual)) {
+            ResumoMensal resumoAnterior = calcularResumoMensal(competenciaAnterior, tenantId, contasAtivas, true);
+            return resumoAnterior.saldoFinal();
+        }
+
+        return BigDecimal.ZERO;
     }
 
     private LocalDate obterUltimoDiaUtilDoMes(YearMonth competencia) {
@@ -328,15 +421,30 @@ public class FechamentoMensalService {
                 .id(fechamentoMensal.getId())
                 .ano(fechamentoMensal.getAno())
                 .mes(fechamentoMensal.getMes())
+                .fechado(true)
                 .saldoInicial(fechamentoMensal.getSaldoInicial())
                 .receitasRealizadas(fechamentoMensal.getReceitasRealizadas())
                 .despesasDoMes(fechamentoMensal.getDespesasDoMes())
                 .despesasPagas(fechamentoMensal.getDespesasPagas())
+                .despesasPagasNoCaixa(fechamentoMensal.getDespesasPagasNoCaixa())
                 .despesasPagasCartao(fechamentoMensal.getDespesasPagasCartao())
                 .totalFaturas(fechamentoMensal.getTotalFaturas())
                 .totalTerceirosFaturas(fechamentoMensal.getTotalTerceirosFaturas())
                 .saldoFinal(fechamentoMensal.getSaldoFinal())
                 .calculadoEm(fechamentoMensal.getCalculadoEm())
                 .build();
+    }
+
+    private record ResumoMensal(
+            BigDecimal saldoInicial,
+            BigDecimal receitasRealizadas,
+            BigDecimal despesasDoMes,
+            BigDecimal despesasPagas,
+            BigDecimal despesasPagasNoCaixa,
+            BigDecimal despesasPagasCartao,
+            BigDecimal totalFaturas,
+            BigDecimal totalTerceirosFaturas,
+            BigDecimal saldoFinal
+    ) {
     }
 }

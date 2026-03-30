@@ -12,6 +12,7 @@ Essa funcionalidade gera um snapshot com:
 - `receitasRealizadas`
 - `despesasDoMes`
 - `despesasPagas`
+- `despesasPagasNoCaixa`
 - `despesasPagasCartao`
 - `totalFaturas`
 - `totalTerceirosFaturas`
@@ -30,22 +31,24 @@ Essa funcionalidade gera um snapshot com:
 ## Origem dos valores
 
 - `saldoInicial`
-  - soma do ultimo `saldo-dia` de todas as contas ativas ate o dia anterior ao inicio do mes
   - se existir fechamento mensal do mes anterior, o sistema usa o `saldoFinal` desse fechamento anterior
+  - se nao existir fechamento mensal anterior, o sistema usa `0`
 - `receitasRealizadas`
   - soma das receitas nao previstas com `dataRecebimento` no mes
 - `despesasDoMes`
   - soma de `valorPrevisto` das despesas com `dataVencimento` no mes
 - `despesasPagas`
-  - soma de `valorPago` das despesas com `dataPagamento` no mes
+  - soma de `valorPago` das despesas do mes com `dataVencimento` no mes
+- `despesasPagasNoCaixa`
+  - soma de `valorPago` das despesas do mes com `dataVencimento` no mes e `formaPagamento != CREDITO`
+- `despesasPagasCartao`
+  - soma de `valorPago` das despesas do mes com `dataVencimento` no mes e `formaPagamento = CREDITO`
 - `totalFaturas`
   - soma dos lancamentos de cartao da `mesAnoFatura` correspondente ao mes
 - `totalTerceirosFaturas`
   - subtotal de lancamentos de cartao com `proprietario = "Terceiros"`
-- `despesasPagasCartao`
-  - `totalFaturas - totalTerceirosFaturas`
 - `saldoFinal`
-  - `saldoInicial + receitasRealizadas - despesasPagas`
+  - `saldoInicial + receitasRealizadas - despesasPagasNoCaixa`
 
 ## APIs
 
@@ -74,6 +77,7 @@ Resposta `200 OK`:
   "receitasRealizadas": 1500.00,
   "despesasDoMes": 2300.00,
   "despesasPagas": 2100.00,
+  "despesasPagasNoCaixa": 1119.50,
   "despesasPagasCartao": 980.50,
   "totalFaturas": 1200.50,
   "totalTerceirosFaturas": 220.00,
@@ -105,6 +109,7 @@ Resposta `200 OK`:
   "receitasRealizadas": 1500.00,
   "despesasDoMes": 2300.00,
   "despesasPagas": 2100.00,
+  "despesasPagasNoCaixa": 1119.50,
   "despesasPagasCartao": 980.50,
   "totalFaturas": 1200.50,
   "totalTerceirosFaturas": 220.00,
@@ -184,5 +189,7 @@ Para a primeira tela, o frontend pode operar de forma simples:
 - exibir o retorno consolidado
 - usar `GET /fechamentos-mensais/{ano}/{mes}` para reconsulta
 - usar `DELETE /fechamentos-mensais/{ano}/{mes}` quando precisar reabrir e recalcular
+- considerar `despesasPagasNoCaixa` como saida real de caixa do mes
+- considerar `despesasPagasCartao` como despesas do mes pagas via cartao, sem impacto direto no saldo final
 
 Nao existe body no `POST`.

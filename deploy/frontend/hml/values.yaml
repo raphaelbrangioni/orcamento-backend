@@ -1,0 +1,88 @@
+replicaCount: 1
+
+image:
+  repository: harbor.orcamento.local/orcamento/orcamento-frontend
+  pullPolicy: IfNotPresent
+  tag: "hml-20260318-1426"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "orcamento-frontend-hml"
+instanceOverride: "orcamento-frontend"
+
+serviceAccount:
+  create: false
+  automount: true
+  annotations: {}
+  name: "orcamento-frontend"
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  nameOverride: "orcamento-frontend"
+  annotations: {}
+  hosts:
+    - host: hml.orcamento.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs:
+    - name: gateway
+      sectionName: http
+  hostnames:
+    - hml.orcamento.local
+  rules: []
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "300m"
+    memory: "256Mi"
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+volumes: []
+volumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+configMap:
+  enabled: true
+  data:
+    VUE_APP_API_URL: "http://api.hml.orcamento.local/api/v1"
+    VUE_APP_ENV: "HML"
+
+env: []
