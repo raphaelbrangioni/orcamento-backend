@@ -20,4 +20,5 @@ public class DashboardHomeDTO {
     private DashboardHomeContasDTO contas;
     private BigDecimal totalFaturasCartoes;
     private List<DashboardHomeCartaoDTO> cartoes;
+    private List<DashboardHomeAlertaDTO> alertas;
 }

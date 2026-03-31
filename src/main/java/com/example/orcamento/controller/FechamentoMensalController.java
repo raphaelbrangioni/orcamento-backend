@@ -1,5 +1,6 @@
 package com.example.orcamento.controller;
 
+import com.example.orcamento.dto.FechamentoMensalHistoricoDTO;
 import com.example.orcamento.dto.FechamentoMensalResponseDTO;
 import com.example.orcamento.service.FechamentoMensalService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,14 @@ public class FechamentoMensalController {
             @RequestParam(required = false) Integer ano
     ) {
         return ResponseEntity.ok(fechamentoMensalService.listarFechamentos(ano));
+    }
+
+    @GetMapping("/{ano}/{mes}/historico")
+    public ResponseEntity<List<FechamentoMensalHistoricoDTO>> listarHistorico(
+            @PathVariable int ano,
+            @PathVariable int mes
+    ) {
+        return ResponseEntity.ok(fechamentoMensalService.listarHistorico(ano, mes));
     }
 
     @DeleteMapping("/{ano}/{mes}")

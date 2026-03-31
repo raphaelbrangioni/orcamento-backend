@@ -10,17 +10,22 @@ import com.example.orcamento.dto.conciliacao.ReceitaAmbiguaDTO;
 import com.example.orcamento.dto.conciliacao.ReceitaConciliacaoDTO;
 import com.example.orcamento.dto.conciliacao.ReceitaConciliadaDTO;
 import com.example.orcamento.dto.conciliacao.TransferenciaConciliadaDTO;
+import com.example.orcamento.model.ConciliacaoOfxProcessamento;
 import com.example.orcamento.model.ContaCorrente;
 import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.Movimentacao;
 import com.example.orcamento.model.Receita;
 import com.example.orcamento.model.TipoMovimentacao;
+import com.example.orcamento.repository.ConciliacaoOfxProcessamentoRepository;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.MovimentacaoRepository;
 import com.example.orcamento.repository.ReceitaRepository;
+import com.example.orcamento.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,7 +35,10 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -46,6 +55,7 @@ import java.util.Set;
 public class ConciliacaoOfxService {
 
     private final ContaCorrenteService contaCorrenteService;
+    private final ConciliacaoOfxProcessamentoRepository conciliacaoOfxProcessamentoRepository;
     private final DespesaRepository despesaRepository;
     private final ReceitaRepository receitaRepository;
     private final MovimentacaoRepository movimentacaoRepository;
@@ -57,83 +67,229 @@ public class ConciliacaoOfxService {
             BigDecimal toleranciaValorMinimo,
             MultipartFile file
     ) {
+        String tenantId = TenantContext.getTenantId();
+        String username = obterUsernameAutenticado();
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo OFX e obrigatorio");
+            IllegalArgumentException exception = new IllegalArgumentException("Arquivo OFX e obrigatorio");
+            salvarProcessamentoErro(tenantId, username, contaCorrenteId, toleranciaDias, toleranciaValor, toleranciaValorMinimo, file, exception);
+            throw exception;
         }
 
-        ContaCorrente contaCorrente = contaCorrenteService.buscarPorId(contaCorrenteId)
-                .orElseThrow(() -> new EntityNotFoundException("Conta corrente nao encontrada para o tenant atual: " + contaCorrenteId));
+        try {
+            String hashArquivo = gerarHashArquivo(file);
+            Optional<ConciliacaoOfxProcessamento> ultimoProcessamento = buscarUltimoProcessamentoMesmoArquivo(tenantId, contaCorrenteId, hashArquivo);
+            ContaCorrente contaCorrente = contaCorrenteService.buscarPorId(contaCorrenteId)
+                    .orElseThrow(() -> new EntityNotFoundException("Conta corrente nao encontrada para o tenant atual: " + contaCorrenteId));
 
-        OfxExtrato extrato = parseOfx(file);
-        Integer dias = toleranciaDias != null ? toleranciaDias : 2;
-        BigDecimal toleranciaEmValor = toleranciaValor != null ? toleranciaValor : BigDecimal.ZERO;
-        BigDecimal toleranciaMinima = toleranciaValorMinimo != null ? toleranciaValorMinimo : new BigDecimal("1000.00");
+            OfxExtrato extrato = parseOfx(file);
+            Integer dias = toleranciaDias != null ? toleranciaDias : 2;
+            BigDecimal toleranciaEmValor = toleranciaValor != null ? toleranciaValor : BigDecimal.ZERO;
+            BigDecimal toleranciaMinima = toleranciaValorMinimo != null ? toleranciaValorMinimo : new BigDecimal("1000.00");
 
-        List<Despesa> despesasPagas = despesaRepository
-                .findByTenantIdAndDataVencimentoBetween(contaCorrente.getTenantId(), extrato.periodoInicio(), extrato.periodoFim()).stream()
-                .filter(d -> d.getContaCorrente() != null && contaCorrenteId.equals(d.getContaCorrente().getId()))
-                .filter(d -> d.getValorPago() != null)
-                .toList();
+            List<Despesa> despesasPagas = despesaRepository
+                    .findByTenantIdAndDataVencimentoBetween(contaCorrente.getTenantId(), extrato.periodoInicio(), extrato.periodoFim()).stream()
+                    .filter(d -> d.getContaCorrente() != null && contaCorrenteId.equals(d.getContaCorrente().getId()))
+                    .filter(d -> d.getValorPago() != null)
+                    .toList();
 
-        List<Receita> receitas = receitaRepository
-                .findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, contaCorrente.getTenantId(), extrato.periodoInicio(), extrato.periodoFim());
+            List<Receita> receitas = receitaRepository
+                    .findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, contaCorrente.getTenantId(), extrato.periodoInicio(), extrato.periodoFim());
 
-        List<Movimentacao> movimentacoes = movimentacaoRepository
-                .findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, contaCorrente.getTenantId(), extrato.periodoInicio(), extrato.periodoFim());
+            List<Movimentacao> movimentacoes = movimentacaoRepository
+                    .findByContaCorrenteIdAndTenantIdAndDataRecebimentoBetween(contaCorrenteId, contaCorrente.getTenantId(), extrato.periodoInicio(), extrato.periodoFim());
 
-        Set<String> ofxDebitosConsumidos = new HashSet<>();
-        Set<String> ofxCreditosConsumidos = new HashSet<>();
-        Set<Long> despesasConsumidas = new HashSet<>();
-        Set<Long> receitasConsumidas = new HashSet<>();
+            Set<String> ofxDebitosConsumidos = new HashSet<>();
+            Set<String> ofxCreditosConsumidos = new HashSet<>();
+            Set<Long> despesasConsumidas = new HashSet<>();
+            Set<Long> receitasConsumidas = new HashSet<>();
 
-        List<CreditoOrigemCartaoDTO> creditosOrigemCartao = conciliarCreditosOrigemCartao(extrato.movimentos(), ofxDebitosConsumidos, ofxCreditosConsumidos);
-        Set<Long> movimentacoesTransferenciaConsumidas = new HashSet<>();
-        List<TransferenciaConciliadaDTO> transferenciasConciliadas = conciliarTransferencias(
-                extrato.movimentos(),
-                movimentacoes,
-                dias,
-                toleranciaEmValor,
-                toleranciaMinima,
-                ofxCreditosConsumidos,
-                ofxDebitosConsumidos,
-                movimentacoesTransferenciaConsumidas
-        );
+            List<CreditoOrigemCartaoDTO> creditosOrigemCartao = conciliarCreditosOrigemCartao(extrato.movimentos(), ofxDebitosConsumidos, ofxCreditosConsumidos);
+            Set<Long> movimentacoesTransferenciaConsumidas = new HashSet<>();
+            List<TransferenciaConciliadaDTO> transferenciasConciliadas = conciliarTransferencias(
+                    extrato.movimentos(),
+                    movimentacoes,
+                    dias,
+                    toleranciaEmValor,
+                    toleranciaMinima,
+                    ofxCreditosConsumidos,
+                    ofxDebitosConsumidos,
+                    movimentacoesTransferenciaConsumidas
+            );
 
-        ResultadoDespesas resultadoDespesas = conciliarDespesas(extrato.movimentos(), despesasPagas, dias, toleranciaEmValor, toleranciaMinima, ofxDebitosConsumidos, despesasConsumidas);
-        ResultadoReceitas resultadoReceitas = conciliarReceitas(extrato.movimentos(), receitas, dias, toleranciaEmValor, toleranciaMinima, ofxCreditosConsumidos, receitasConsumidas);
+            ResultadoDespesas resultadoDespesas = conciliarDespesas(extrato.movimentos(), despesasPagas, dias, toleranciaEmValor, toleranciaMinima, ofxDebitosConsumidos, despesasConsumidas);
+            ResultadoReceitas resultadoReceitas = conciliarReceitas(extrato.movimentos(), receitas, dias, toleranciaEmValor, toleranciaMinima, ofxCreditosConsumidos, receitasConsumidas);
 
-        List<DespesaConciliacaoDTO> pagamentoSemBanco = despesasPagas.stream()
-                .filter(d -> !despesasConsumidas.contains(d.getId()))
-                .sorted(Comparator.comparing(Despesa::getDataPagamento, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(this::toDespesaDto)
-                .toList();
+            List<DespesaConciliacaoDTO> pagamentoSemBanco = despesasPagas.stream()
+                    .filter(d -> !despesasConsumidas.contains(d.getId()))
+                    .sorted(Comparator.comparing(Despesa::getDataPagamento, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(this::toDespesaDto)
+                    .toList();
 
-        List<ReceitaConciliacaoDTO> receitaSemBanco = receitas.stream()
-                .filter(r -> !receitasConsumidas.contains(r.getId()))
-                .sorted(Comparator.comparing(Receita::getDataRecebimento, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(this::toReceitaDto)
-                .toList();
+            List<ReceitaConciliacaoDTO> receitaSemBanco = receitas.stream()
+                    .filter(r -> !receitasConsumidas.contains(r.getId()))
+                    .sorted(Comparator.comparing(Receita::getDataRecebimento, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(this::toReceitaDto)
+                    .toList();
 
-        return ConciliacaoOfxRelatorioDTO.builder()
-                .contaCorrenteId(contaCorrenteId)
-                .periodoInicio(extrato.periodoInicio())
-                .periodoFim(extrato.periodoFim())
-                .toleranciaDias(dias)
-                .toleranciaValor(toleranciaEmValor)
-                .toleranciaValorMinimo(toleranciaMinima)
-                .bancoIdOfx(extrato.bankId())
-                .contaIdOfx(extrato.accountId())
-                .conciliados(resultadoDespesas.conciliados())
-                .bancoSemPagamento(resultadoDespesas.bancoSemPagamento())
-                .pagamentoSemBanco(pagamentoSemBanco)
-                .ambiguos(resultadoDespesas.ambiguos())
-                .receitasConciliadas(resultadoReceitas.conciliadas())
-                .transferenciasConciliadas(transferenciasConciliadas)
-                .creditosOrigemCartao(creditosOrigemCartao)
-                .bancoSemReceita(resultadoReceitas.bancoSemReceita())
-                .receitaSemBanco(receitaSemBanco)
-                .receitasAmbiguas(resultadoReceitas.ambiguas())
-                .build();
+            ConciliacaoOfxRelatorioDTO relatorio = ConciliacaoOfxRelatorioDTO.builder()
+                    .contaCorrenteId(contaCorrenteId)
+                    .periodoInicio(extrato.periodoInicio())
+                    .periodoFim(extrato.periodoFim())
+                    .toleranciaDias(dias)
+                    .toleranciaValor(toleranciaEmValor)
+                    .toleranciaValorMinimo(toleranciaMinima)
+                    .bancoIdOfx(extrato.bankId())
+                    .contaIdOfx(extrato.accountId())
+                    .conciliados(resultadoDespesas.conciliados())
+                    .bancoSemPagamento(resultadoDespesas.bancoSemPagamento())
+                    .pagamentoSemBanco(pagamentoSemBanco)
+                    .ambiguos(resultadoDespesas.ambiguos())
+                    .receitasConciliadas(resultadoReceitas.conciliadas())
+                    .transferenciasConciliadas(transferenciasConciliadas)
+                    .creditosOrigemCartao(creditosOrigemCartao)
+                    .bancoSemReceita(resultadoReceitas.bancoSemReceita())
+                    .receitaSemBanco(receitaSemBanco)
+                    .receitasAmbiguas(resultadoReceitas.ambiguas())
+                    .arquivoJaProcessado(ultimoProcessamento.isPresent())
+                    .ultimoProcessamentoEm(ultimoProcessamento.map(ConciliacaoOfxProcessamento::getProcessadoEm).orElse(null))
+                    .build();
+
+            salvarProcessamentoSucesso(tenantId, username, file, relatorio);
+            return relatorio;
+        } catch (RuntimeException exception) {
+            salvarProcessamentoErro(tenantId, username, contaCorrenteId, toleranciaDias, toleranciaValor, toleranciaValorMinimo, file, exception);
+            throw exception;
+        }
+    }
+
+    private void salvarProcessamentoSucesso(
+            String tenantId,
+            String username,
+            MultipartFile file,
+            ConciliacaoOfxRelatorioDTO relatorio
+    ) {
+        conciliacaoOfxProcessamentoRepository.save(ConciliacaoOfxProcessamento.builder()
+                .tenantId(tenantId)
+                .username(username)
+                .contaCorrenteId(relatorio.getContaCorrenteId())
+                .nomeArquivo(obterNomeArquivo(file))
+                .contentType(file != null ? file.getContentType() : null)
+                .tamanhoArquivo(file != null ? file.getSize() : 0L)
+                .hashArquivo(gerarHashArquivo(file))
+                .bancoIdOfx(relatorio.getBancoIdOfx())
+                .contaIdOfx(relatorio.getContaIdOfx())
+                .periodoInicio(relatorio.getPeriodoInicio())
+                .periodoFim(relatorio.getPeriodoFim())
+                .toleranciaDias(relatorio.getToleranciaDias())
+                .toleranciaValor(relatorio.getToleranciaValor() != null ? relatorio.getToleranciaValor() : BigDecimal.ZERO)
+                .toleranciaValorMinimo(relatorio.getToleranciaValorMinimo() != null ? relatorio.getToleranciaValorMinimo() : BigDecimal.ZERO)
+                .conciliadosQuantidade(size(relatorio.getConciliados()))
+                .bancoSemPagamentoQuantidade(size(relatorio.getBancoSemPagamento()))
+                .pagamentoSemBancoQuantidade(size(relatorio.getPagamentoSemBanco()))
+                .ambiguosQuantidade(size(relatorio.getAmbiguos()))
+                .receitasConciliadasQuantidade(size(relatorio.getReceitasConciliadas()))
+                .transferenciasConciliadasQuantidade(size(relatorio.getTransferenciasConciliadas()))
+                .creditosOrigemCartaoQuantidade(size(relatorio.getCreditosOrigemCartao()))
+                .bancoSemReceitaQuantidade(size(relatorio.getBancoSemReceita()))
+                .receitaSemBancoQuantidade(size(relatorio.getReceitaSemBanco()))
+                .receitasAmbiguasQuantidade(size(relatorio.getReceitasAmbiguas()))
+                .status("PROCESSADO")
+                .mensagemErro(null)
+                .processadoEm(LocalDateTime.now())
+                .build());
+    }
+
+    private void salvarProcessamentoErro(
+            String tenantId,
+            String username,
+            Long contaCorrenteId,
+            Integer toleranciaDias,
+            BigDecimal toleranciaValor,
+            BigDecimal toleranciaValorMinimo,
+            MultipartFile file,
+            RuntimeException exception
+    ) {
+        conciliacaoOfxProcessamentoRepository.save(ConciliacaoOfxProcessamento.builder()
+                .tenantId(tenantId != null ? tenantId : "desconhecido")
+                .username(username)
+                .contaCorrenteId(contaCorrenteId != null ? contaCorrenteId : 0L)
+                .nomeArquivo(obterNomeArquivo(file))
+                .contentType(file != null ? file.getContentType() : null)
+                .tamanhoArquivo(file != null ? file.getSize() : 0L)
+                .hashArquivo(gerarHashArquivo(file))
+                .bancoIdOfx(null)
+                .contaIdOfx(null)
+                .periodoInicio(null)
+                .periodoFim(null)
+                .toleranciaDias(toleranciaDias != null ? toleranciaDias : 2)
+                .toleranciaValor(toleranciaValor != null ? toleranciaValor : BigDecimal.ZERO)
+                .toleranciaValorMinimo(toleranciaValorMinimo != null ? toleranciaValorMinimo : new BigDecimal("1000.00"))
+                .conciliadosQuantidade(0)
+                .bancoSemPagamentoQuantidade(0)
+                .pagamentoSemBancoQuantidade(0)
+                .ambiguosQuantidade(0)
+                .receitasConciliadasQuantidade(0)
+                .transferenciasConciliadasQuantidade(0)
+                .creditosOrigemCartaoQuantidade(0)
+                .bancoSemReceitaQuantidade(0)
+                .receitaSemBancoQuantidade(0)
+                .receitasAmbiguasQuantidade(0)
+                .status("ERRO")
+                .mensagemErro(truncarMensagem(exception.getMessage()))
+                .processadoEm(LocalDateTime.now())
+                .build());
+    }
+
+    private String obterUsernameAutenticado() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return "desconhecido";
+        }
+        return authentication.getName();
+    }
+
+    private String obterNomeArquivo(MultipartFile file) {
+        if (file == null || file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()) {
+            return "sem-nome";
+        }
+        return file.getOriginalFilename();
+    }
+
+    private String gerarHashArquivo(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(file.getBytes());
+            StringBuilder builder = new StringBuilder();
+            for (byte b : hash) {
+                builder.append(String.format("%02x", b));
+            }
+            return builder.toString();
+        } catch (IOException | NoSuchAlgorithmException e) {
+            log.warn("conciliacao_ofx.hash_arquivo_indisponivel motivo={}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Optional<ConciliacaoOfxProcessamento> buscarUltimoProcessamentoMesmoArquivo(String tenantId, Long contaCorrenteId, String hashArquivo) {
+        if (tenantId == null || contaCorrenteId == null || hashArquivo == null || hashArquivo.isBlank()) {
+            return Optional.empty();
+        }
+        return conciliacaoOfxProcessamentoRepository
+                .findTopByTenantIdAndContaCorrenteIdAndHashArquivoOrderByProcessadoEmDesc(tenantId, contaCorrenteId, hashArquivo);
+    }
+
+    private int size(List<?> list) {
+        return list != null ? list.size() : 0;
+    }
+
+    private String truncarMensagem(String mensagem) {
+        if (mensagem == null || mensagem.isBlank()) {
+            return "Erro desconhecido ao processar OFX";
+        }
+        return mensagem.length() > 1000 ? mensagem.substring(0, 1000) : mensagem;
     }
 
     private ResultadoDespesas conciliarDespesas(

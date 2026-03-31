@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -32,4 +33,6 @@ public class ConciliacaoOfxRelatorioDTO {
     private List<MovimentoOfxDTO> bancoSemReceita;
     private List<ReceitaConciliacaoDTO> receitaSemBanco;
     private List<ReceitaAmbiguaDTO> receitasAmbiguas;
+    private Boolean arquivoJaProcessado;
+    private LocalDateTime ultimoProcessamentoEm;
 }

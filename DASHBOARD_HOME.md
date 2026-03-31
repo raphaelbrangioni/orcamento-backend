@@ -10,6 +10,7 @@ O endpoint consolida:
 - fechamento mensal do periodo
 - resumo das contas correntes
 - resumo das faturas por cartao
+- alertas operacionais da home
 
 ## Endpoint
 
@@ -49,6 +50,9 @@ x-tenant-id: 06660607625
     "despesasPagasCartao": 1077.69,
     "totalFaturas": 22155.99,
     "totalTerceirosFaturas": 8359.40,
+    "totalFaturasProprias": 13796.59,
+    "totalFaturasLancadasComoDespesa": 12000.00,
+    "totalFaturasNaoLancadas": 1796.59,
     "saldoFinal": 26669.35,
     "calculadoEm": "2026-03-26T18:00:00.123"
   },
@@ -74,6 +78,24 @@ x-tenant-id: 06660607625
       "valorTerceiros": 3359.40,
       "faturaLancada": false
     }
+  ],
+  "alertas": [
+    {
+      "tipo": "FATURAS_NAO_LANCADAS",
+      "nivel": "warning",
+      "titulo": "Existem faturas proprias nao lancadas",
+      "mensagem": "Parte das faturas do mes ainda nao foi lancada como despesa.",
+      "quantidade": 2,
+      "valor": 1796.59
+    },
+    {
+      "tipo": "FATURAS_A_VENCER",
+      "nivel": "warning",
+      "titulo": "Existem faturas a vencer",
+      "mensagem": "Ha faturas proprias com vencimento futuro na competencia selecionada.",
+      "quantidade": 2,
+      "valor": 9500.00
+    }
   ]
 }
 ```
@@ -88,6 +110,7 @@ x-tenant-id: 06660607625
 - `contas`
 - `totalFaturasCartoes`
 - `cartoes`
+- `alertas`
 
 ### `fechamentoMensal`
 
@@ -112,6 +135,9 @@ Campos:
 - `despesasPagasCartao`
 - `totalFaturas`
 - `totalTerceirosFaturas`
+- `totalFaturasProprias`
+- `totalFaturasLancadasComoDespesa`
+- `totalFaturasNaoLancadas`
 - `saldoFinal`
 - `calculadoEm`
 
@@ -129,6 +155,15 @@ Campos:
 - `valorTerceiros`
 - `faturaLancada`
 
+### `alertas[]`
+
+- `tipo`
+- `nivel`
+- `titulo`
+- `mensagem`
+- `quantidade`
+- `valor`
+
 ## Regras importantes
 
 - A API e multi-tenant.
@@ -142,6 +177,19 @@ Campos:
 - `despesasPagasCartao` representa despesas do mes pagas com `formaPagamento = CREDITO`.
 - `saldoFinal` usa a formula `saldoInicial + receitasRealizadas - despesasPagasNoCaixa`.
 - `faturaLancada` indica se a despesa da fatura daquele cartao/mes ja foi criada no sistema.
+- `totalFaturasProprias = totalFaturas - totalTerceirosFaturas`.
+- `totalFaturasLancadasComoDespesa` representa a parte das faturas que ja virou despesa no sistema.
+- `totalFaturasNaoLancadas` representa a parte das faturas proprias que ainda nao virou despesa.
+- `alertas` pode vir vazio.
+- Tipos atuais de alerta:
+  - `FATURAS_NAO_LANCADAS`
+  - `FATURAS_A_VENCER`
+  - `DESPESAS_VENCIDAS_NAO_PAGAS`
+  - `CONTAS_NEGATIVAS`
+- `FATURAS_A_VENCER`:
+  - no mes atual considera faturas proprias com vencimento a partir do dia atual
+  - em mes futuro considera as faturas proprias do mes
+  - em mes passado nao e retornado
 
 ## Observacao para frontend
 
@@ -152,3 +200,4 @@ Fluxo recomendado para a home:
 3. usar `fechado = false` para identificar que os dados ainda sao uma previa
 4. usar `despesasPagasNoCaixa` para cards relacionados a saida real de caixa
 5. usar `faturaLancada` e `diaVencimento` para destacar a situacao operacional dos cartoes
+6. usar `alertas` para destacar acoes pendentes e riscos operacionais na home

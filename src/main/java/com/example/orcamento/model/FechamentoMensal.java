@@ -67,4 +67,16 @@ public class FechamentoMensal {
 
     @Column(name = "calculado_em", nullable = false)
     private LocalDateTime calculadoEm;
+
+    @Column(name = "fechado_por")
+    private String fechadoPor;
+
+    @Column(name = "fechado_em")
+    private LocalDateTime fechadoEm;
+
+    @Column(name = "ultimo_reprocessamento_por")
+    private String ultimoReprocessamentoPor;
+
+    @Column(name = "ultimo_reprocessamento_em")
+    private LocalDateTime ultimoReprocessamentoEm;
 }

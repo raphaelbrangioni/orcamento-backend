@@ -2,14 +2,17 @@ package com.example.orcamento.service;
 
 import com.example.orcamento.dto.FechamentoMensalResponseDTO;
 import com.example.orcamento.model.ContaCorrente;
-import com.example.orcamento.model.ContaCorrenteSaldoDia;
 import com.example.orcamento.model.Despesa;
 import com.example.orcamento.model.FechamentoMensal;
+import com.example.orcamento.dto.FechamentoMensalHistoricoDTO;
+import com.example.orcamento.model.FechamentoMensalHistorico;
 import com.example.orcamento.model.LancamentoCartao;
 import com.example.orcamento.model.Receita;
 import com.example.orcamento.model.enums.FormaDePagamento;
+import com.example.orcamento.repository.CartaoCreditoRepository;
 import com.example.orcamento.repository.ContaCorrenteSaldoDiaRepository;
 import com.example.orcamento.repository.DespesaRepository;
+import com.example.orcamento.repository.FechamentoMensalHistoricoRepository;
 import com.example.orcamento.repository.FechamentoMensalRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
 import com.example.orcamento.repository.ReceitaRepository;
@@ -17,10 +20,13 @@ import com.example.orcamento.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,6 +61,8 @@ public class FechamentoMensalService {
     private final ReceitaRepository receitaRepository;
     private final DespesaRepository despesaRepository;
     private final LancamentoCartaoRepository lancamentoCartaoRepository;
+    private final CartaoCreditoRepository cartaoCreditoRepository;
+    private final FechamentoMensalHistoricoRepository fechamentoMensalHistoricoRepository;
 
     @Value("${app.fechamento-mensal.validar-fechamento-diario-desde:}")
     private String validarFechamentoDiarioDesde;
@@ -70,6 +78,7 @@ public class FechamentoMensalService {
         }
 
         String tenantId = TenantContext.getTenantId();
+        String username = obterUsernameAutenticado();
         List<ContaCorrente> contasAtivas = contaCorrenteService.listarTodos().stream()
                 .filter(ContaCorrente::isContaAtiva)
                 .toList();
@@ -87,6 +96,8 @@ public class FechamentoMensalService {
         FechamentoMensal fechamentoMensal = fechamentoMensalRepository
                 .findByTenantIdAndAnoAndMes(tenantId, ano, mes)
                 .orElseGet(FechamentoMensal::new);
+        boolean reprocessamento = fechamentoMensal.getId() != null;
+        LocalDateTime agora = LocalDateTime.now();
 
         fechamentoMensal.setTenantId(tenantId);
         fechamentoMensal.setAno(ano);
@@ -100,16 +111,36 @@ public class FechamentoMensalService {
         fechamentoMensal.setTotalFaturas(resumoMensal.totalFaturas());
         fechamentoMensal.setTotalTerceirosFaturas(resumoMensal.totalTerceirosFaturas());
         fechamentoMensal.setSaldoFinal(resumoMensal.saldoFinal());
-        fechamentoMensal.setCalculadoEm(LocalDateTime.now());
+        fechamentoMensal.setCalculadoEm(agora);
+        if (!reprocessamento) {
+            fechamentoMensal.setFechadoPor(username);
+            fechamentoMensal.setFechadoEm(agora);
+            fechamentoMensal.setUltimoReprocessamentoPor(null);
+            fechamentoMensal.setUltimoReprocessamentoEm(null);
+        } else {
+            fechamentoMensal.setUltimoReprocessamentoPor(username);
+            fechamentoMensal.setUltimoReprocessamentoEm(agora);
+        }
 
         FechamentoMensal fechamentoMensalSalvo = fechamentoMensalRepository.save(fechamentoMensal);
+        registrarHistorico(
+                tenantId,
+                fechamentoMensalSalvo.getId(),
+                ano,
+                mes,
+                reprocessamento ? "REPROCESSADO" : "FECHADO",
+                username,
+                agora
+        );
 
         log.info(
-                "fechamento_mensal.fechado fechamentoMensalId={} tenantId={} ano={} mes={} saldoInicial={} receitasRealizadas={} despesasDoMes={} despesasPagas={} despesasPagasNoCaixa={} despesasPagasCartao={} totalFaturas={} totalTerceirosFaturas={} saldoFinal={}",
+                "fechamento_mensal.fechado fechamentoMensalId={} tenantId={} ano={} mes={} username={} evento={} saldoInicial={} receitasRealizadas={} despesasDoMes={} despesasPagas={} despesasPagasNoCaixa={} despesasPagasCartao={} totalFaturas={} totalTerceirosFaturas={} saldoFinal={}",
                 fechamentoMensalSalvo.getId(),
                 tenantId,
                 ano,
                 mes,
+                username,
+                reprocessamento ? "REPROCESSADO" : "FECHADO",
                 resumoMensal.saldoInicial(),
                 resumoMensal.receitasRealizadas(),
                 resumoMensal.despesasDoMes(),
@@ -169,6 +200,9 @@ public class FechamentoMensalService {
                 .despesasPagasCartao(resumoMensal.despesasPagasCartao())
                 .totalFaturas(resumoMensal.totalFaturas())
                 .totalTerceirosFaturas(resumoMensal.totalTerceirosFaturas())
+                .totalFaturasProprias(resumoMensal.totalFaturasProprias())
+                .totalFaturasLancadasComoDespesa(resumoMensal.totalFaturasLancadasComoDespesa())
+                .totalFaturasNaoLancadas(resumoMensal.totalFaturasNaoLancadas())
                 .saldoFinal(resumoMensal.saldoFinal())
                 .calculadoEm(LocalDateTime.now())
                 .build();
@@ -186,21 +220,51 @@ public class FechamentoMensalService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<FechamentoMensalHistoricoDTO> listarHistorico(int ano, int mes) {
+        validarAnoMes(ano, mes);
+        String tenantId = TenantContext.getTenantId();
+        return fechamentoMensalHistoricoRepository.findByTenantIdAndAnoAndMesOrderByOcorridoEmDesc(tenantId, ano, mes)
+                .stream()
+                .map(historico -> FechamentoMensalHistoricoDTO.builder()
+                        .id(historico.getId())
+                        .fechamentoMensalId(historico.getFechamentoMensalId())
+                        .ano(historico.getAno())
+                        .mes(historico.getMes())
+                        .evento(historico.getEvento())
+                        .username(historico.getUsername())
+                        .ocorridoEm(historico.getOcorridoEm())
+                        .build())
+                .toList();
+    }
+
     @Transactional
     public void reabrirMes(int ano, int mes) {
         validarAnoMes(ano, mes);
         String tenantId = TenantContext.getTenantId();
+        String username = obterUsernameAutenticado();
+        LocalDateTime agora = LocalDateTime.now();
 
         FechamentoMensal fechamentoMensal = fechamentoMensalRepository.findByTenantIdAndAnoAndMes(tenantId, ano, mes)
                 .orElseThrow(() -> new IllegalArgumentException("Fechamento mensal nao encontrado para " + ano + "/" + mes));
 
+        registrarHistorico(
+                tenantId,
+                fechamentoMensal.getId(),
+                ano,
+                mes,
+                "REABERTO",
+                username,
+                agora
+        );
         fechamentoMensalRepository.deleteByTenantIdAndAnoAndMes(tenantId, ano, mes);
         log.info(
-                "fechamento_mensal.reaberto fechamentoMensalId={} tenantId={} ano={} mes={}",
+                "fechamento_mensal.reaberto fechamentoMensalId={} tenantId={} ano={} mes={} username={}",
                 fechamentoMensal.getId(),
                 tenantId,
                 ano,
-                mes
+                mes,
+                username
         );
     }
 
@@ -290,6 +354,14 @@ public class FechamentoMensalService {
                 .filter(valor -> valor != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        IndicadoresFatura indicadoresFatura = calcularIndicadoresFatura(
+                tenantId,
+                competencia,
+                despesasDoMesLista,
+                totalFaturas,
+                totalTerceirosFaturas
+        );
+
         BigDecimal saldoFinal = saldoInicial.add(receitasRealizadas).subtract(despesasPagasNoCaixa);
 
         return new ResumoMensal(
@@ -301,8 +373,60 @@ public class FechamentoMensalService {
                 despesasPagasCartao,
                 totalFaturas,
                 totalTerceirosFaturas,
+                indicadoresFatura.totalFaturasProprias(),
+                indicadoresFatura.totalFaturasLancadasComoDespesa(),
+                indicadoresFatura.totalFaturasNaoLancadas(),
                 saldoFinal
         );
+    }
+
+    private IndicadoresFatura calcularIndicadoresFatura(
+            String tenantId,
+            YearMonth competencia,
+            List<Despesa> despesasDoMesLista,
+            BigDecimal totalFaturas,
+            BigDecimal totalTerceirosFaturas
+    ) {
+        BigDecimal totalFaturasProprias = totalFaturas.subtract(totalTerceirosFaturas).max(BigDecimal.ZERO);
+
+        BigDecimal totalFaturasLancadasComoDespesa = despesasDoMesLista.stream()
+                .filter(this::isDespesaDeFaturaCartao)
+                .map(Despesa::getValorPrevisto)
+                .filter(valor -> valor != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String mesAnoFatura = formatarMesAnoFatura(competencia.getYear(), competencia.getMonthValue());
+        BigDecimal totalFaturasNaoLancadas = cartaoCreditoRepository.findByTenantId(tenantId).stream()
+                .filter(cartao -> !despesaRepository.existsByNomeLikeAndMesAndAno(
+                        tenantId,
+                        "Fatura Cartao " + cartao.getNome(),
+                        competencia.getMonthValue(),
+                        competencia.getYear()
+                ))
+                .map(cartao -> {
+                    BigDecimal valorFatura = lancamentoCartaoRepository.getFaturaDoMes(cartao.getId(), mesAnoFatura, tenantId);
+                    BigDecimal valorTerceiros = lancamentoCartaoRepository.getFaturaDoMesTerceiros(cartao.getId(), mesAnoFatura, tenantId);
+                    BigDecimal total = valorFatura != null ? valorFatura : BigDecimal.ZERO;
+                    BigDecimal terceiros = valorTerceiros != null ? valorTerceiros : BigDecimal.ZERO;
+                    return total.subtract(terceiros).max(BigDecimal.ZERO);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new IndicadoresFatura(
+                totalFaturasProprias,
+                totalFaturasLancadasComoDespesa,
+                totalFaturasNaoLancadas
+        );
+    }
+
+    private boolean isDespesaDeFaturaCartao(Despesa despesa) {
+        if (despesa.getNome() == null || despesa.getNome().isBlank()) {
+            return false;
+        }
+        String normalizado = Normalizer.normalize(despesa.getNome(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
+        return normalizado.startsWith("FATURA CARTAO ");
     }
 
     private BigDecimal obterSaldoInicialPreview(
@@ -417,6 +541,19 @@ public class FechamentoMensalService {
     }
 
     private FechamentoMensalResponseDTO toResponseDto(FechamentoMensal fechamentoMensal) {
+        String tenantId = TenantContext.getTenantId();
+        YearMonth competencia = YearMonth.of(fechamentoMensal.getAno(), fechamentoMensal.getMes());
+        LocalDate inicioMes = competencia.atDay(1);
+        LocalDate fimMes = competencia.atEndOfMonth();
+        List<Despesa> despesasDoMesLista = despesaRepository.findByTenantIdAndDataVencimentoBetween(tenantId, inicioMes, fimMes);
+        IndicadoresFatura indicadoresFatura = calcularIndicadoresFatura(
+                tenantId,
+                competencia,
+                despesasDoMesLista,
+                fechamentoMensal.getTotalFaturas(),
+                fechamentoMensal.getTotalTerceirosFaturas()
+        );
+
         return FechamentoMensalResponseDTO.builder()
                 .id(fechamentoMensal.getId())
                 .ano(fechamentoMensal.getAno())
@@ -430,9 +567,44 @@ public class FechamentoMensalService {
                 .despesasPagasCartao(fechamentoMensal.getDespesasPagasCartao())
                 .totalFaturas(fechamentoMensal.getTotalFaturas())
                 .totalTerceirosFaturas(fechamentoMensal.getTotalTerceirosFaturas())
+                .totalFaturasProprias(indicadoresFatura.totalFaturasProprias())
+                .totalFaturasLancadasComoDespesa(indicadoresFatura.totalFaturasLancadasComoDespesa())
+                .totalFaturasNaoLancadas(indicadoresFatura.totalFaturasNaoLancadas())
                 .saldoFinal(fechamentoMensal.getSaldoFinal())
                 .calculadoEm(fechamentoMensal.getCalculadoEm())
+                .fechadoPor(fechamentoMensal.getFechadoPor())
+                .fechadoEm(fechamentoMensal.getFechadoEm())
+                .ultimoReprocessamentoPor(fechamentoMensal.getUltimoReprocessamentoPor())
+                .ultimoReprocessamentoEm(fechamentoMensal.getUltimoReprocessamentoEm())
                 .build();
+    }
+
+    private void registrarHistorico(
+            String tenantId,
+            Long fechamentoMensalId,
+            int ano,
+            int mes,
+            String evento,
+            String username,
+            LocalDateTime ocorridoEm
+    ) {
+        fechamentoMensalHistoricoRepository.save(FechamentoMensalHistorico.builder()
+                .tenantId(tenantId)
+                .fechamentoMensalId(fechamentoMensalId)
+                .ano(ano)
+                .mes(mes)
+                .evento(evento)
+                .username(username)
+                .ocorridoEm(ocorridoEm)
+                .build());
+    }
+
+    private String obterUsernameAutenticado() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return "desconhecido";
+        }
+        return authentication.getName();
     }
 
     private record ResumoMensal(
@@ -444,7 +616,17 @@ public class FechamentoMensalService {
             BigDecimal despesasPagasCartao,
             BigDecimal totalFaturas,
             BigDecimal totalTerceirosFaturas,
+            BigDecimal totalFaturasProprias,
+            BigDecimal totalFaturasLancadasComoDespesa,
+            BigDecimal totalFaturasNaoLancadas,
             BigDecimal saldoFinal
+    ) {
+    }
+
+    private record IndicadoresFatura(
+            BigDecimal totalFaturasProprias,
+            BigDecimal totalFaturasLancadasComoDespesa,
+            BigDecimal totalFaturasNaoLancadas
     ) {
     }
 }

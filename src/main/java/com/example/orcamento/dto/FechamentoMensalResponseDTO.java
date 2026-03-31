@@ -25,6 +25,13 @@ public class FechamentoMensalResponseDTO {
     private BigDecimal despesasPagasCartao;
     private BigDecimal totalFaturas;
     private BigDecimal totalTerceirosFaturas;
+    private BigDecimal totalFaturasProprias;
+    private BigDecimal totalFaturasLancadasComoDespesa;
+    private BigDecimal totalFaturasNaoLancadas;
     private BigDecimal saldoFinal;
     private LocalDateTime calculadoEm;
+    private String fechadoPor;
+    private LocalDateTime fechadoEm;
+    private String ultimoReprocessamentoPor;
+    private LocalDateTime ultimoReprocessamentoEm;
 }
