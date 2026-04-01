@@ -8,6 +8,7 @@ import com.example.orcamento.dto.dashboard.DashboardHomeDTO;
 import com.example.orcamento.model.CartaoCredito;
 import com.example.orcamento.model.ContaCorrente;
 import com.example.orcamento.model.Despesa;
+import com.example.orcamento.model.GeracaoFaturaCartao;
 import com.example.orcamento.repository.CartaoCreditoRepository;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
@@ -34,6 +35,7 @@ public class DashboardHomeService {
     private final LancamentoCartaoRepository lancamentoCartaoRepository;
     private final DespesaRepository despesaRepository;
     private final DespesaService despesaService;
+    private final GeracaoFaturaCartaoService geracaoFaturaCartaoService;
 
     @Transactional(readOnly = true)
     public DashboardHomeDTO obterDashboard(Integer ano, Integer mes) {
@@ -58,8 +60,9 @@ public class DashboardHomeService {
                 .build();
 
         String mesAnoFatura = formatarMesAnoFatura(competencia.getYear(), competencia.getMonthValue());
+        var geracoesPorChave = geracaoFaturaCartaoService.listarGeracoesPorAnoMapeadas(competencia.getYear());
         List<DashboardHomeCartaoDTO> cartoes = cartaoCreditoRepository.findByTenantId(tenantId).stream()
-                .map(cartao -> toCartaoDto(cartao, competencia, mesAnoFatura, tenantId))
+                .map(cartao -> toCartaoDto(cartao, competencia, mesAnoFatura, tenantId, geracoesPorChave))
                 .toList();
 
         BigDecimal totalFaturasCartoes = cartoes.stream()
@@ -185,9 +188,16 @@ public class DashboardHomeService {
         return valorFatura.subtract(valorTerceiros).max(BigDecimal.ZERO);
     }
 
-    private DashboardHomeCartaoDTO toCartaoDto(CartaoCredito cartao, YearMonth competencia, String mesAnoFatura, String tenantId) {
+    private DashboardHomeCartaoDTO toCartaoDto(
+            CartaoCredito cartao,
+            YearMonth competencia,
+            String mesAnoFatura,
+            String tenantId,
+            java.util.Map<String, GeracaoFaturaCartao> geracoesPorChave
+    ) {
         BigDecimal valorFatura = lancamentoCartaoRepository.getFaturaDoMes(cartao.getId(), mesAnoFatura, tenantId);
         BigDecimal valorTerceiros = lancamentoCartaoRepository.getFaturaDoMesTerceiros(cartao.getId(), mesAnoFatura, tenantId);
+        GeracaoFaturaCartao geracao = geracoesPorChave.get(GeracaoFaturaCartaoService.chave(cartao.getId(), competencia.getMonthValue()));
         boolean faturaLancada = despesaService.verificarFaturaLancada(
                 cartao.getNome(),
                 competencia.getMonthValue(),
@@ -201,6 +211,11 @@ public class DashboardHomeService {
                 .valorFatura(valorFatura != null ? valorFatura : BigDecimal.ZERO)
                 .valorTerceiros(valorTerceiros != null ? valorTerceiros : BigDecimal.ZERO)
                 .faturaLancada(faturaLancada)
+                .geracaoFaturaId(geracao != null ? geracao.getId() : null)
+                .geradoPor(geracao != null ? geracao.getGeradoPor() : null)
+                .geradoEm(geracao != null ? geracao.getGeradoEm() : null)
+                .ultimoReprocessamentoPor(geracao != null ? geracao.getUltimoReprocessamentoPor() : null)
+                .ultimoReprocessamentoEm(geracao != null ? geracao.getUltimoReprocessamentoEm() : null)
                 .build();
     }
 

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -18,4 +19,9 @@ public class DashboardHomeCartaoDTO {
     private BigDecimal valorFatura;
     private BigDecimal valorTerceiros;
     private boolean faturaLancada;
+    private Long geracaoFaturaId;
+    private String geradoPor;
+    private LocalDateTime geradoEm;
+    private String ultimoReprocessamentoPor;
+    private LocalDateTime ultimoReprocessamentoEm;
 }

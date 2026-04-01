@@ -9,6 +9,7 @@ import com.example.orcamento.model.MetaEconomia;
 import com.example.orcamento.model.Movimentacao;
 import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.model.TipoMovimentacao;
+import com.example.orcamento.repository.GeracaoFaturaCartaoRepository;
 import com.example.orcamento.model.enums.FormaDePagamento;
 import com.example.orcamento.repository.DespesaRepository;
 import com.example.orcamento.repository.LancamentoCartaoRepository;
@@ -51,6 +52,8 @@ public class DespesaService {
     private SubcategoriaDespesaRepository subcategoriaDespesaRepository;
     @Autowired
     private FileStorageService fileStorageService;
+    @Autowired
+    private GeracaoFaturaCartaoRepository geracaoFaturaCartaoRepository;
 
     public List<Despesa> listarDespesas() {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
@@ -479,6 +482,23 @@ public class DespesaService {
     public boolean verificarFaturaLancada(String nomeCartao, int mes, int ano) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
         String nomeBusca = "Fatura Cartao " + nomeCartao;
+        return verificarFaturaLancadaPorGeracaoOuDespesa(tenantId, nomeBusca, nomeCartao, mes, ano);
+    }
+
+    public boolean verificarFaturaLancadaLegacy(String nomeCartao, int mes, int ano) {
+        String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        String nomeBusca = "Fatura Cartao " + nomeCartao;
+        return despesaRepository.existsByNomeLikeAndMesAndAno(tenantId, nomeBusca, mes, ano);
+    }
+
+    private boolean verificarFaturaLancadaPorGeracaoOuDespesa(String tenantId, String nomeBusca, String nomeCartao, int mes, int ano) {
+        boolean existeGeracao = geracaoFaturaCartaoRepository.findByTenantIdAndAno(tenantId, ano).stream()
+                .anyMatch(geracao -> geracao.getMes() == mes
+                        && geracao.getCartaoCredito() != null
+                        && nomeCartao.equals(geracao.getCartaoCredito().getNome()));
+        if (existeGeracao) {
+            return true;
+        }
         return despesaRepository.existsByNomeLikeAndMesAndAno(tenantId, nomeBusca, mes, ano);
     }
 

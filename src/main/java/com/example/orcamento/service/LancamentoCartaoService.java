@@ -9,6 +9,7 @@ import com.example.orcamento.dto.dashboard.FaturaMensalDTO;
 import com.example.orcamento.mapper.CompraMapper;
 import com.example.orcamento.model.CartaoCredito;
 import com.example.orcamento.model.CategoriaDespesa;
+import com.example.orcamento.model.GeracaoFaturaCartao;
 import com.example.orcamento.model.LancamentoCartao;
 import com.example.orcamento.model.SubcategoriaDespesa;
 import com.example.orcamento.repository.CartaoCreditoRepository;
@@ -37,6 +38,7 @@ public class LancamentoCartaoService {
     private final SubcategoriaDespesaRepository subcategoriaDespesaRepository;
     private final DespesaService despesaService;
     private final CompraMapper compraMapper;
+    private final GeracaoFaturaCartaoService geracaoFaturaCartaoService;
 
     public LancamentoCartao cadastrarLancamento(LancamentoCartao lancamento) {
         log.info("Lancamento a ser salvo: {}", lancamento);
@@ -171,6 +173,7 @@ public class LancamentoCartaoService {
 
     public List<FaturaCartaoAnualDTO> getFaturasAnuais(int ano) {
         String tenantId = com.example.orcamento.security.TenantContext.getTenantId();
+        Map<String, GeracaoFaturaCartao> geracoesPorChave = geracaoFaturaCartaoService.listarGeracoesPorAnoMapeadas(ano);
         List<Long> cartoesIds = cartaoCreditoRepository.findByTenantId(tenantId).stream()
                 .map(CartaoCredito::getId)
                 .toList();
@@ -186,6 +189,7 @@ public class LancamentoCartaoService {
                     for (int mesNum = 1; mesNum <= 12; mesNum++) {
                         String mesNome = mesParaString(mesNum);
                         String mesAnoFatura = mesNome + "/" + ano;
+                        GeracaoFaturaCartao geracao = geracoesPorChave.get(GeracaoFaturaCartaoService.chave(cartaoId, mesNum));
 
                         BigDecimal valorFatura = lancamentoCartaoRepository.getFaturaDoMes(cartaoId, mesAnoFatura, tenantId);
                         BigDecimal valorTerceiros = lancamentoCartaoRepository.getFaturaDoMesTerceiros(cartaoId, mesAnoFatura, tenantId);
@@ -194,7 +198,12 @@ public class LancamentoCartaoService {
                         FaturaMensalDTO faturaMensalDTO = new FaturaMensalDTO(
                                 valorFatura != null ? valorFatura : BigDecimal.ZERO,
                                 faturaLancada,
-                                valorTerceiros != null ? valorTerceiros : BigDecimal.ZERO
+                                valorTerceiros != null ? valorTerceiros : BigDecimal.ZERO,
+                                geracao != null ? geracao.getId() : null,
+                                geracao != null ? geracao.getGeradoPor() : null,
+                                geracao != null ? geracao.getGeradoEm() : null,
+                                geracao != null ? geracao.getUltimoReprocessamentoPor() : null,
+                                geracao != null ? geracao.getUltimoReprocessamentoEm() : null
                         );
 
                         faturasPorMes.put(mesNome, faturaMensalDTO);
